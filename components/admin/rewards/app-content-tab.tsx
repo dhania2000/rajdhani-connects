@@ -18,7 +18,7 @@ export async function AppContentTab({ section }: { section: 'content' | 'configu
       description={
         section === 'content'
           ? 'Changes the text and tile visibility in the contractor app. The original layout and 3x2 grid stay the same.'
-          : 'Currency names shown to contractors and how new reward activities are approved.'
+          : 'Currency names shown to contractors and how new sales are approved.'
       }
     >
       <ActionForm action={saveAppContentAction} submitLabel="Save changes">

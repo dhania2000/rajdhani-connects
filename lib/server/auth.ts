@@ -46,7 +46,7 @@ async function setSessionCookie(type: AccountType, token: string) {
   store.set(SESSION_COOKIE[type], token, {
     httpOnly: true,
     secure: true,
-    // The v0 preview renders inside an iframe, which needs SameSite=None during development.
+    // Development previews may run inside an iframe, which needs SameSite=None.
     sameSite: process.env.NODE_ENV === 'production' ? 'lax' : 'none',
     path: '/',
     maxAge: SESSION_HOURS[type] * 3600,

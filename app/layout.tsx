@@ -9,16 +9,8 @@ export const metadata: Metadata = {
   title: 'Rajdhani Connects – Contractor Rewards',
   description:
     'Contractor rewards app for Rajdhani Connects partners: track referred sales, earn rewards, redeem gifts and view offers.',
-  generator: 'v0.app',
   applicationName: 'Rajdhani Contractor Rewards',
-  icons: {
-    icon: [
-      { url: '/icon-light-32x32.png', media: '(prefers-color-scheme: light)' },
-      { url: '/icon-dark-32x32.png', media: '(prefers-color-scheme: dark)' },
-      { url: '/icon.svg', type: 'image/svg+xml' },
-    ],
-    apple: '/apple-icon.png',
-  },
+  // Favicon and home-screen icon come from app/icon.svg and app/apple-icon.tsx.
 }
 
 export const viewport: Viewport = {

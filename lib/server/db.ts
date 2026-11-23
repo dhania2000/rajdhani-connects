@@ -13,7 +13,7 @@ export function isDbConfigured() {
 function getConnectionConfig() {
   const missing = REQUIRED_DB_ENV.filter((key) => !process.env[key])
   if (missing.length > 0) {
-    throw new Error(`Database env vars missing: ${missing.join(', ')}. Add them in Settings > Vars.`)
+    throw new Error(`Database env vars missing: ${missing.join(', ')}. Set them in the server environment.`)
   }
   return {
     host: process.env.DB_HOST,

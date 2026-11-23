@@ -9,12 +9,12 @@ export default async function AdminDashboardPage() {
   const { counts, monthly, top, recent } = await getDashboardMetrics()
   return (
     <>
-      <PageHeader title="Dashboard" description="Overview of contractors, reward activities, and reward liability." />
+      <PageHeader title="Dashboard" description="Overview of contractors, sales, and reward liability." />
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard label="Total contractors" value={fmtNumber(counts.contractors_total)} icon={Users} hint={`${fmtNumber(counts.contractors_active)} active`} />
         <StatCard label="Pending approval" value={fmtNumber(counts.contractors_pending)} icon={UserPlus} tone="amber" hint="Awaiting account review" />
-        <StatCard label="Activities awaiting review" value={fmtNumber(counts.activities_pending)} icon={ClipboardCheck} tone="amber" hint="Submitted reward activities" />
+        <StatCard label="Sales awaiting review" value={fmtNumber(counts.activities_pending)} icon={ClipboardCheck} tone="amber" hint="Submitted sales" />
         <StatCard label="Open gift claims" value={fmtNumber(counts.redemptions_open)} icon={Gift} tone="red" hint="Requested to handover" />
         <StatCard label="Points outstanding" value={fmtNumber(counts.points_available)} icon={Coins} tone="gold" hint={`${fmtNumber(counts.points_reserved)} reserved for claims`} />
         <StatCard label="Tokens outstanding" value={fmtNumber(counts.tokens_available)} icon={UserCheck} tone="green" hint="Available contractor tokens" />

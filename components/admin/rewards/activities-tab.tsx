@@ -23,7 +23,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
 
   return (
     <Panel
-      title="Sales (reward activities)"
+      title="Sales"
       description="Each sale shows on the contractor's My Sales screen. Enter reward points yourself, or leave them blank to use the reward rules."
       actions={
         <FormDialog triggerLabel="Add sale" title="Add referred sale">
