@@ -1,10 +1,7 @@
 import { listOffers } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
-<<<<<<< HEAD
-=======
 import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
->>>>>>> bf12b5f (update website)
 import { ImageUploadField } from '@/components/admin/image-upload-field'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, StatusBadge, Td, toInputDate } from '@/components/admin/ui'
