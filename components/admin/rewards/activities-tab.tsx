@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { listActivities } from '@/lib/server/rewards-engine'
 import { listContractorOptions } from '@/lib/server/admin-rewards'
+import { listProductOptions } from '@/lib/server/catalogue-admin'
+import { ProductPicker } from '@/components/admin/product-picker'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
 import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
@@ -18,7 +20,11 @@ const FILTERS = [
 ]
 
 export async function ActivitiesTab({ status = '', q = '' }: { status?: string; q?: string }) {
-  const [rows, contractors] = await Promise.all([listActivities({ status: status || undefined, q: q.trim() || undefined }), listContractorOptions()])
+  const [rows, contractors, products] = await Promise.all([
+    listActivities({ status: status || undefined, q: q.trim() || undefined }),
+    listContractorOptions(),
+    listProductOptions(),
+  ])
   const today = new Date().toISOString().slice(0, 10)
 
   return (
@@ -31,6 +37,10 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
             <EmptyState title="No contractors" description="Add a contractor first." />
           ) : (
             <ActionForm action={createActivityAction} submitLabel="Save sale">
+              <ProductPicker
+                products={products}
+                fill={{ productRef: 'name', productCategory: 'category', brand: 'brand', unit: 'unit', notes: 'description' }}
+              />
               <FormGrid>
                 <SelectInput label="Contractor" name="contractorId" required options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.mobile})` }))} />
                 <TextInput label="Referred customer name" name="customerName" placeholder="Who bought the material" />

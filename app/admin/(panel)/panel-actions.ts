@@ -51,6 +51,7 @@ import {
 import {
   accountEntrySchema,
   categorySchema,
+  slugify,
   productSchema,
   saveAccountEntry,
   saveCategory,
@@ -352,7 +353,9 @@ export async function saveAppContentAction(_: AdminActionState, fd: FormData): P
 
 export async function saveCategoryAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
   const admin = await requireAdmin()
-  const parsed = parse(categorySchema, entries(fd))
+  const raw = entries(fd)
+  if (!raw.slug?.trim()) raw.slug = slugify(raw.name ?? '')
+  const parsed = parse(categorySchema, raw)
   if ('error' in parsed) return { error: parsed.error }
   const upload = await uploadImage(fd, 'imageFile', admin.adminId)
   if (upload && 'error' in upload) return { error: upload.error }

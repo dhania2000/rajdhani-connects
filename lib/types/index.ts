@@ -99,6 +99,7 @@ export interface Product {
   category: ProductCategoryId
   scheme?: string
   image?: string
+  description?: string
 }
 
 export type OfferState = 'active' | 'expiring' | 'upcoming'

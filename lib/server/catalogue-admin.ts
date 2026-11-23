@@ -25,7 +25,7 @@ export const categorySchema = z.object({
     .string()
     .trim()
     .toLowerCase()
-    .regex(/^[a-z0-9-]{2,40}$/, 'Slug must be 2-40 lowercase letters, numbers or dashes.'),
+    .regex(/^[a-z0-9-]{2,40}$/, 'Short code must be 2-40 lowercase letters, numbers or dashes.'),
   imageUrl: optionalText(500),
   displayOrder: z.coerce.number().int().min(0).max(9999).default(0),
   status: activeFlag,
@@ -37,10 +37,20 @@ export const productSchema = z.object({
   brand: optionalText(80),
   unit: optionalText(60),
   schemeLabel: optionalText(80),
+  description: optionalText(2000),
   imageUrl: optionalText(500),
   displayOrder: z.coerce.number().int().min(0).max(9999).default(0),
   status: activeFlag,
 })
+
+/** Turns a category name into a URL-safe code, e.g. "Tile Adhesive / Glue" -> "tile-adhesive-glue". */
+export function slugify(name: string) {
+  return name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 40)
+}
 
 export interface CategoryRow {
   id: number
@@ -60,9 +70,36 @@ export interface ProductRow {
   brand: string | null
   unit: string | null
   scheme_label: string | null
+  description: string | null
   image_url: string | null
   display_order: number
   status: 'active' | 'inactive'
+}
+
+/** Catalogue products offered in admin dropdowns (Sales, Reward Rules, Points) to auto-fill product details. */
+export interface ProductOption {
+  id: number
+  name: string
+  brand: string
+  unit: string
+  category: string
+  description: string
+}
+
+export async function listProductOptions(): Promise<ProductOption[]> {
+  const rows = await query<{ id: number; name: string; brand: string | null; unit: string | null; category: string; description: string | null }>(
+    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description
+     FROM products p JOIN product_categories c ON c.id = p.category_id
+     WHERE p.status = 'active' ORDER BY c.display_order, c.name, p.display_order, p.name LIMIT 2000`,
+  )
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    brand: r.brand ?? '',
+    unit: r.unit ?? '',
+    category: r.category,
+    description: r.description ?? '',
+  }))
 }
 
 export function listCategories() {
@@ -75,7 +112,7 @@ export function listCategories() {
 
 export function listProducts() {
   return query<ProductRow>(
-    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.image_url, p.display_order, p.status
+    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.description, p.image_url, p.display_order, p.status
      FROM products p JOIN product_categories c ON c.id = p.category_id
      ORDER BY c.display_order, c.name, p.display_order, p.name`,
   )
@@ -102,16 +139,16 @@ export async function saveCategory(admin: AdminSession, id: number | null, input
 export async function saveProduct(admin: AdminSession, id: number | null, input: z.infer<typeof productSchema>): Promise<Result> {
   const category = await queryOne<{ id: number }>('SELECT id FROM product_categories WHERE id = ?', [input.categoryId])
   if (!category) return { ok: false, error: 'Choose a valid category.' }
-  const values = [input.categoryId, input.name, input.brand, input.unit, input.schemeLabel, input.imageUrl, input.displayOrder, input.status]
+  const values = [input.categoryId, input.name, input.brand, input.unit, input.schemeLabel, input.description, input.imageUrl, input.displayOrder, input.status]
   if (id) {
     const r = await execute(
-      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, image_url = ?, display_order = ?, status = ? WHERE id = ?',
+      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, description = ?, image_url = ?, display_order = ?, status = ? WHERE id = ?',
       [...values, id],
     )
     if (r.affectedRows === 0) return { ok: false, error: 'Product not found.' }
   } else {
     const r = await execute(
-      'INSERT INTO products (category_id, name, brand, unit, scheme_label, image_url, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO products (category_id, name, brand, unit, scheme_label, description, image_url, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
       values,
     )
     id = r.insertId
