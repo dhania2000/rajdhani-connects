@@ -7,7 +7,7 @@
 --      (e.g. via cPanel > MySQL Databases or phpMyAdmin).
 --   2. Import this file into that database (phpMyAdmin > Import, or
 --      `mysql -u USER -p DBNAME < schema.sql`).
---   3. Set these environment variables on the app (v0 Settings > Vars, or Vercel):
+--   3. Set these environment variables on the app (your hosting's environment settings):
 --        DB_HOST              your MySQL host (e.g. mysql.example.com)
 --        DB_PORT              3306 (optional, defaults to 3306)
 --        DB_NAME              the database name
@@ -18,7 +18,7 @@
 --        SUPER_ADMIN_PASSWORD a strong password (min 10 chars) for the first login
 --      On the first admin sign-in the Super Admin account is created with a
 --      bcrypt hash of that password. After that the env password is ignored.
---   4. Your MySQL host must accept remote connections from Vercel
+--   4. Your MySQL host must accept remote connections from your app server
 --      (cPanel > Remote MySQL > add host `%`, or your provider's equivalent).
 --
 -- Notes

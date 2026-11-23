@@ -26,7 +26,7 @@ export type RewardSection = {
 export const REWARD_SECTIONS: RewardSection[] = [
   { slug: 'overview', label: 'Overview', legacyTab: 'overview', icon: LayoutGrid, description: 'Manage reward rules, points, tokens, gifts, and contractor reward programmes.' },
   { slug: 'rules', label: 'Reward Rules', legacyTab: 'rules', icon: ScrollText, description: 'Define how contractors earn points and tokens from referred sales.' },
-  { slug: 'activities', label: 'Reward Activities', legacyTab: 'activities', icon: ClipboardList, description: 'Review, approve, and record contractor sales activities.' },
+  { slug: 'activities', label: 'Sales', legacyTab: 'activities', icon: ClipboardList, description: 'Add, approve, and review contractor referred sales.' },
   { slug: 'points-tokens', label: 'Points & Tokens', legacyTab: 'points', icon: Coins, description: 'Contractor balances, manual adjustments, and the reward ledger.' },
   { slug: 'gifts', label: 'Gift Catalogue', legacyTab: 'gifts', icon: Gift, description: 'Gifts contractors can claim with their points and tokens.' },
   { slug: 'redemptions', label: 'Redemption Requests', legacyTab: 'redemptions', icon: PackageCheck, description: 'Process gift claims from request through to handover.' },
