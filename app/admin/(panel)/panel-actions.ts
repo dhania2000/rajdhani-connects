@@ -44,6 +44,7 @@ import {
   saveAppContent,
   saveGift,
   saveOffer,
+  setOfferStatus,
   sendBroadcast,
   transitionRedemption,
   type RedemptionStatus,
@@ -322,6 +323,17 @@ export async function saveOfferAction(_: AdminActionState, fd: FormData): Promis
   if (upload) parsed.data.bannerUrl = upload.url
   const id = idOf(fd)
   return done(await saveOffer(admin, id, parsed.data), id ? 'Offer updated.' : 'Offer created.')
+}
+
+export async function offerStatusAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  const status = String(fd.get('status'))
+  if (!id || (status !== 'draft' && status !== 'published')) return { error: 'Invalid request.' }
+  return done(
+    await setOfferStatus(admin, id, status),
+    status === 'published' ? 'Offer published. Contractors can see it now.' : 'Offer moved to draft and hidden from contractors.',
+  )
 }
 
 export async function broadcastAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {

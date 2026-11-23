@@ -5,7 +5,7 @@ import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
 import { ImageUploadField } from '@/components/admin/image-upload-field'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, StatusBadge, Td, toInputDate } from '@/components/admin/ui'
-import { saveOfferAction } from '@/app/admin/(panel)/panel-actions'
+import { offerStatusAction, saveOfferAction } from '@/app/admin/(panel)/panel-actions'
 
 type Offer = Awaited<ReturnType<typeof listOffers>>[number]
 
@@ -43,10 +43,11 @@ function OfferFields({ o }: { o?: Offer }) {
         <SelectInput
           label="Status"
           name="status"
-          defaultValue={o?.status ?? 'draft'}
+          defaultValue={o?.status ?? 'published'}
+          hint="Only Published offers are shown in the contractor app."
           options={[
-            { value: 'draft', label: 'Draft' },
-            { value: 'published', label: 'Published' },
+            { value: 'published', label: 'Published (visible to contractors)' },
+            { value: 'draft', label: 'Draft (hidden)' },
             { value: 'archived', label: 'Archived' },
           ]}
         />
@@ -76,7 +77,7 @@ export async function OffersTab() {
   return (
     <Panel
       title="Offers & schemes"
-      description="Published offers appear in the contractor app. Progress is calculated from real qualifying reward data."
+      description="Only Published offers appear in the contractor app, from their start date until the end date. Drafts stay hidden."
       actions={
         <FormDialog triggerLabel="Create offer" title="Create offer">
           <ActionForm action={saveOfferAction} submitLabel="Save offer">
@@ -106,9 +107,22 @@ export async function OffersTab() {
               <Td className="text-xs">{o.audience === 'all' ? 'All' : `${o.audience_ids?.split(',').length ?? 0} contractor(s)`}</Td>
               <Td>
                 <StatusBadge status={phase(o)} />
+                {o.status === 'draft' ? <p className="mt-1 text-xs text-ink-muted">Hidden from contractors</p> : null}
+                {phase(o) === 'expired' ? <p className="mt-1 text-xs text-ink-muted">Past end date, hidden</p> : null}
               </Td>
               <Td>
                 <div className="flex flex-wrap gap-1.5">
+                  {o.status !== 'archived' ? (
+                    <ActionForm
+                      action={offerStatusAction}
+                      submitLabel={o.status === 'published' ? 'Unpublish' : 'Publish'}
+                      submitVariant={o.status === 'published' ? 'outline' : 'default'}
+                      inline
+                    >
+                      <input type="hidden" name="id" value={o.id} />
+                      <input type="hidden" name="status" value={o.status === 'published' ? 'draft' : 'published'} />
+                    </ActionForm>
+                  ) : null}
                   <FormDialog triggerLabel="Edit" title={`Edit ${o.title}`} variant="edit">
                     <ActionForm action={saveOfferAction} submitLabel="Save offer">
                       <input type="hidden" name="id" value={o.id} />

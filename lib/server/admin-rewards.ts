@@ -389,6 +389,14 @@ export async function listOffers() {
   )
 }
 
+/** Publishing makes an offer visible in the contractor app (within its dates); drafts stay admin-only. */
+export async function setOfferStatus(admin: AdminSession, offerId: number, status: 'draft' | 'published') {
+  const r = await execute("UPDATE offers SET status = ? WHERE id = ? AND status <> 'archived'", [status, offerId])
+  if (r.affectedRows === 0) return { ok: false as const, error: 'Offer not found.' }
+  await writeAudit({ actorType: 'admin', actorId: admin.adminId, action: `offer.${status}`, entityType: 'offer', entityId: offerId })
+  return { ok: true as const }
+}
+
 export async function saveOffer(admin: AdminSession, offerId: number | null, input: OfferInput) {
   return withTransaction(async (conn) => {
     const values = [
