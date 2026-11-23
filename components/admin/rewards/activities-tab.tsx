@@ -23,28 +23,37 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
 
   return (
     <Panel
-      title="Reward activities"
-      description="Referral performance records used for reward calculation and the contractor's My Sales screen. Not a billing system."
+      title="Sales (reward activities)"
+      description="Each sale shows on the contractor's My Sales screen. Enter reward points yourself, or leave them blank to use the reward rules."
       actions={
-        <FormDialog triggerLabel="Record activity" title="Record reward activity">
+        <FormDialog triggerLabel="Add sale" title="Add referred sale">
           {contractors.length === 0 ? (
             <EmptyState title="No contractors" description="Add a contractor first." />
           ) : (
-            <ActionForm action={createActivityAction} submitLabel="Save activity">
+            <ActionForm action={createActivityAction} submitLabel="Save sale">
               <FormGrid>
                 <SelectInput label="Contractor" name="contractorId" required options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.mobile})` }))} />
-                <TextInput label="Customer / reference name" name="customerName" />
+                <TextInput label="Referred customer name" name="customerName" placeholder="Who bought the material" />
                 <TextInput label="Invoice / reference number" name="referenceNumber" required />
-                <TextInput label="Activity date" name="activityDate" type="date" required defaultValue={today} max={today} />
+                <TextInput label="Sale date" name="activityDate" type="date" required defaultValue={today} max={today} />
                 <TextInput label="Product category" name="productCategory" placeholder="Tiles, Glue, Sanitary..." />
                 <TextInput label="Brand" name="brand" />
-                <TextInput label="Product reference" name="productRef" />
+                <TextInput label="Product name" name="productRef" placeholder="e.g. Vitrified Tile 600x600" />
                 <TextInput label="Quantity" name="quantity" type="number" min={0} step="any" required defaultValue={0} />
                 <TextInput label="Unit" name="unit" placeholder="bags, boxes, sq ft" />
-                <TextInput label="Eligible amount (Rs.)" name="eligibleAmount" type="number" min={0} step="any" required defaultValue={0} />
-                <TextArea label="Notes" name="notes" className="sm:col-span-2" />
+                <TextInput label="Purchase amount (₹)" name="eligibleAmount" type="number" min={0} step="any" required defaultValue={0} />
+                <TextInput
+                  label="Reward points"
+                  name="manualPoints"
+                  type="number"
+                  min={0}
+                  step={1}
+                  placeholder="Blank = use reward rules"
+                  hint="Points the contractor gets for this sale once approved."
+                />
+                <TextArea label="Product description" name="notes" className="sm:col-span-2" placeholder="Shown to the contractor in My Sales" />
               </FormGrid>
-              <CheckboxInput label="Approve now and credit rewards" name="approveNow" />
+              <CheckboxInput label="Approve now and credit points" name="approveNow" defaultChecked />
             </ActionForm>
           )}
         </FormDialog>
@@ -73,7 +82,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
       </div>
 
       {rows.length === 0 ? (
-        <EmptyState title="No activities found" />
+        <EmptyState title="No sales found" />
       ) : (
         <DataTable head={['Date', 'Contractor', 'Reference', 'Product', 'Qty', 'Amount', 'Rewards', 'Status', 'Actions']}>
           {rows.map((a) => (
@@ -86,11 +95,20 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
                 {a.customer_name ? <p className="text-xs text-ink-muted">{a.customer_name}</p> : null}
               </Td>
               <Td className="font-mono text-xs">{a.reference_number}</Td>
-              <Td className="text-xs">{[a.product_category, a.brand, a.product_ref].filter(Boolean).join(' / ') || '\u2014'}</Td>
+              <Td className="text-xs">
+                {[a.product_category, a.brand, a.product_ref].filter(Boolean).join(' / ') || '\u2014'}
+                {a.notes ? <p className="mt-0.5 line-clamp-2 text-ink-muted">{a.notes}</p> : null}
+              </Td>
               <Td className="tabular-nums">{fmtNumber(a.quantity)}</Td>
               <Td className="tabular-nums">{fmtCurrency(a.eligible_amount)}</Td>
               <Td className="text-xs tabular-nums">
-                {fmtNumber(a.points)} pts / {fmtNumber(a.tokens)} tok
+                {a.status === 'submitted' ? (
+                  a.manual_points !== null ? `${fmtNumber(a.manual_points)} pts (on approval)` : 'By rules (on approval)'
+                ) : (
+                  <>
+                    {fmtNumber(a.points)} pts / {fmtNumber(a.tokens)} tok
+                  </>
+                )}
               </Td>
               <Td>
                 <StatusBadge status={a.status} />

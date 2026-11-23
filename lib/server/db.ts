@@ -58,6 +58,13 @@ async function runMigrations() {
     )
   }
   await getPool().query(ACCOUNT_ENTRIES_DDL)
+  // Admin-entered reward points for a sale; NULL means the reward rules decide.
+  const [manualPoints] = await getPool().query<RowDataPacket[]>(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'reward_activities' AND column_name = 'manual_points'",
+  )
+  if (manualPoints.length === 0) {
+    await getPool().query('ALTER TABLE reward_activities ADD COLUMN manual_points BIGINT UNSIGNED NULL AFTER eligible_amount')
+  }
 }
 
 // Kept in sync with database/schema.sql so existing databases gain the table without a manual import.
