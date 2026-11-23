@@ -1,5 +1,5 @@
 -- =============================================================================
--- Rajdhani Tiles & Sanitary - Contractor Rewards Platform
+-- Rajdhani Connects - Contractor Rewards Platform
 -- MySQL 8.0+ / MariaDB 10.5+ schema (Phase 1)
 --
 -- How to install on your hosting:
@@ -621,6 +621,6 @@ INSERT IGNORE INTO contractor_app_configuration (config_key, config_value) VALUE
   ('store_phone',     '+911412345678'),
   ('store_whatsapp',  '911412345678'),
   ('ledger_enabled',  'false'),
-  ('support_message', 'For password resets or account changes, contact Rajdhani Tiles & Sanitary.'),
+  ('support_message', 'For password resets or account changes, contact Rajdhani Connects.'),
   ('activity_approval_mode', 'manual'),
   ('points_expiry_days', '0');

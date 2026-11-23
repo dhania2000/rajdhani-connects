@@ -535,13 +535,13 @@ export const appContentSchema = z.object({
 export type AppContent = z.infer<typeof appContentSchema>
 
 export const DEFAULT_APP_CONTENT: AppContent = {
-  brandName: 'Rajdhani Tiles & Sanitary',
+  brandName: 'Rajdhani Connects',
   welcomeText: 'Welcome back',
   rewardCardTitle: 'Your rewards',
   redeemButtonText: 'Redeem rewards',
   pointsLabel: 'Points',
   tokensLabel: 'Tokens',
-  supportMessage: 'For password resets or account changes, contact Rajdhani Tiles & Sanitary.',
+  supportMessage: 'For password resets or account changes, contact Rajdhani Connects.',
   ledgerComingSoon: true,
   ledgerMessage: 'Your account ledger will be available here soon.',
   activityApprovalMode: 'manual',

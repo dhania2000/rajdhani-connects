@@ -5,7 +5,7 @@ import { AuthShell } from '@/components/contractor/auth/auth-shell'
 import { AdminLoginForm } from '@/components/admin/admin-login-form'
 
 export const metadata: Metadata = {
-  title: 'Admin Login – Rajdhani Tiles & Sanitary',
+  title: 'Admin Login – Rajdhani Connects',
   robots: { index: false, follow: false },
 }
 export const dynamic = 'force-dynamic'

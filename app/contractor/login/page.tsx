@@ -4,7 +4,7 @@ import { getContractorSession } from '@/lib/server/auth'
 import { AuthShell } from '@/components/contractor/auth/auth-shell'
 import { LoginForm } from '@/components/contractor/auth/login-form'
 
-export const metadata: Metadata = { title: 'Login – Rajdhani Tiles & Sanitary' }
+export const metadata: Metadata = { title: 'Login – Rajdhani Connects' }
 export const dynamic = 'force-dynamic'
 
 export default async function ContractorLoginPage() {

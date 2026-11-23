@@ -6,9 +6,9 @@ import './globals.css'
 const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 export const metadata: Metadata = {
-  title: 'Rajdhani Tiles & Sanitary – Contractor Rewards',
+  title: 'Rajdhani Connects – Contractor Rewards',
   description:
-    'Contractor rewards app for Rajdhani Tiles & Sanitary partners: track referred sales, earn rewards, redeem gifts and view offers.',
+    'Contractor rewards app for Rajdhani Connects partners: track referred sales, earn rewards, redeem gifts and view offers.',
   generator: 'v0.app',
   applicationName: 'Rajdhani Contractor Rewards',
   icons: {

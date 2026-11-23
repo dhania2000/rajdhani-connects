@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/contractor/layout/page-header'
 import { LedgerView } from '@/components/contractor/ledger/ledger-view'
 
-export const metadata: Metadata = { title: 'My Ledger – Rajdhani Tiles & Sanitary' }
+export const metadata: Metadata = { title: 'My Ledger – Rajdhani Connects' }
 
 export default function LedgerPage() {
   return (
