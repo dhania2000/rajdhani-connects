@@ -1,6 +1,7 @@
 import { listOffers } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
+import { ImageUploadField } from '@/components/admin/image-upload-field'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, StatusBadge, Td, toInputDate } from '@/components/admin/ui'
 import { saveOfferAction } from '@/app/admin/(panel)/panel-actions'
@@ -13,7 +14,7 @@ function OfferFields({ o }: { o?: Offer }) {
     <>
       <FormGrid>
         <TextInput label="Offer title" name="title" required defaultValue={o?.title} className="sm:col-span-2" />
-        <TextInput label="Banner image URL" name="bannerUrl" defaultValue={o?.banner_url ?? ''} placeholder="https://..." className="sm:col-span-2" />
+        <ImageUploadField label="Banner image" name="bannerUrl" fileName="bannerFile" defaultValue={o?.banner_url} aspect="banner" className="sm:col-span-2" />
         <TextInput label="Start date" name="startDate" type="date" required defaultValue={toInputDate(o?.start_date) || today} />
         <TextInput label="End date" name="endDate" type="date" required defaultValue={toInputDate(o?.end_date)} />
         <SelectInput

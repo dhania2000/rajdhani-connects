@@ -1,7 +1,8 @@
 'use client'
 
-import { useActionState, type ReactNode } from 'react'
+import { useActionState, useEffect, type ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
+import { toast } from 'sonner'
 import { Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
@@ -25,6 +26,11 @@ export function ActionForm({
   inline?: boolean
 }) {
   const [state, formAction] = useActionState<AdminActionState, FormData>(action, {})
+
+  useEffect(() => {
+    if (state.error) toast.error(state.error)
+    else if (state.message) toast.success(state.message)
+  }, [state])
 
   return (
     <form action={formAction} className={cn(inline ? 'flex flex-wrap items-end gap-2' : 'flex flex-col gap-4', className)}>

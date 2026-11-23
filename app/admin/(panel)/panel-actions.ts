@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 import { requireAdmin } from '@/lib/server/auth'
+import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import {
   adjustContractorPoints,
   adjustmentSchema,
@@ -61,6 +62,13 @@ function entries(fd: FormData) {
 function parse<T extends z.ZodTypeAny>(schema: T, data: unknown): { data: z.infer<T> } | { error: string } {
   const r = schema.safeParse(data)
   return r.success ? { data: r.data } : { error: r.error.issues[0]?.message ?? 'Please check the form.' }
+}
+
+async function uploadImage(fd: FormData, key: string, adminId: number) {
+  const file = fd.get(key)
+  if (!isUploadedFile(file)) return null
+  const r = await saveImageUpload(file, adminId)
+  return r.ok ? { url: r.url } : { error: r.error }
 }
 
 function idOf(fd: FormData, key = 'id') {
@@ -188,6 +196,9 @@ export async function saveGiftAction(_: AdminActionState, fd: FormData): Promise
   const admin = await requireAdmin()
   const parsed = parse(giftSchema, entries(fd))
   if ('error' in parsed) return { error: parsed.error }
+  const upload = await uploadImage(fd, 'imageFile', admin.adminId)
+  if (upload && 'error' in upload) return { error: upload.error }
+  if (upload) parsed.data.imageUrl = upload.url
   const id = idOf(fd)
   return done(await saveGift(admin, id, parsed.data), id ? 'Gift updated.' : 'Gift added.')
 }
@@ -218,6 +229,9 @@ export async function saveOfferAction(_: AdminActionState, fd: FormData): Promis
   const admin = await requireAdmin()
   const parsed = parse(offerSchema, entries(fd))
   if ('error' in parsed) return { error: parsed.error }
+  const upload = await uploadImage(fd, 'bannerFile', admin.adminId)
+  if (upload && 'error' in upload) return { error: upload.error }
+  if (upload) parsed.data.bannerUrl = upload.url
   const id = idOf(fd)
   return done(await saveOffer(admin, id, parsed.data), id ? 'Offer updated.' : 'Offer created.')
 }

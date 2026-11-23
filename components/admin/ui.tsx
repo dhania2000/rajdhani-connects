@@ -95,14 +95,14 @@ export function EmptyState({ title, description }: { title: string; description?
   )
 }
 
-export function DataTable({ head, children }: { head: string[]; children: ReactNode }) {
+export function DataTable({ head, children }: { head: ReactNode[]; children: ReactNode }) {
   return (
     <div className="max-w-full overflow-x-auto rounded-[10px] border border-border">
       <table className="w-full min-w-[640px] text-left text-[13px]">
         <thead className="border-b border-border bg-[#f9fafc] text-[11px] uppercase tracking-[0.08em] text-ink-muted">
           <tr>
-            {head.map((h) => (
-              <th key={h} scope="col" className="whitespace-nowrap px-4 py-2.5 font-semibold">
+            {head.map((h, i) => (
+              <th key={typeof h === 'string' ? h : i} scope="col" className="whitespace-nowrap px-4 py-2.5 font-semibold">
                 {h}
               </th>
             ))}

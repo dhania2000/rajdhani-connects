@@ -3,11 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ChevronDown, ChevronRight, Gift, LayoutDashboard, LogOut, Menu, Search, Users } from 'lucide-react'
+import { Bell, ChevronDown, ChevronRight, Gift, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Users } from 'lucide-react'
+import { Toaster } from '@/components/ui/sonner'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { REWARD_SECTIONS, REWARDS_BASE, findRewardSection, rewardHref } from '@/lib/admin-nav'
 import { cn } from '@/lib/utils'
+
+const COLLAPSE_KEY = 'rts-admin-sidebar-collapsed'
 
 const isUnder = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
@@ -20,25 +23,27 @@ function BrandMark() {
   )
 }
 
-function NavItem({ href, label, icon: Icon, active, onNavigate }: { href: string; label: string; icon: typeof Users; active: boolean; onNavigate?: () => void }) {
+function NavItem({ href, label, icon: Icon, active, collapsed, onNavigate }: { href: string; label: string; icon: typeof Users; active: boolean; collapsed?: boolean; onNavigate?: () => void }) {
   return (
     <Link
       href={href}
       onClick={onNavigate}
       aria-current={active ? 'page' : undefined}
+      title={collapsed ? label : undefined}
       className={cn(
         'group relative flex h-10 items-center gap-3 rounded-lg px-3 text-[13.5px] font-medium transition-colors',
+        collapsed && 'justify-center px-0',
         active ? 'bg-navy-active text-white' : 'text-white/65 hover:bg-white/[0.05] hover:text-white',
       )}
     >
       {active ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-gold" aria-hidden="true" /> : null}
       <Icon className={cn('size-[18px] shrink-0', active ? 'text-white' : 'text-white/55 group-hover:text-white')} aria-hidden="true" />
-      {label}
+      <span className={cn(collapsed && 'sr-only')}>{label}</span>
     </Link>
   )
 }
 
-function RewardsGroup({ onNavigate }: { onNavigate?: () => void }) {
+function RewardsGroup({ collapsed, onExpandSidebar, onNavigate }: { collapsed?: boolean; onExpandSidebar?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname()
   const inRewards = isUnder(pathname, REWARDS_BASE)
   const [open, setOpen] = useState(inRewards)
@@ -51,21 +56,28 @@ function RewardsGroup({ onNavigate }: { onNavigate?: () => void }) {
     <div>
       <button
         type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
+        onClick={() => {
+          if (collapsed) {
+            onExpandSidebar?.()
+            setOpen(true)
+          } else setOpen((v) => !v)
+        }}
+        aria-expanded={collapsed ? false : open}
+        title={collapsed ? 'Rewards Engine' : undefined}
         aria-controls="rewards-engine-submenu"
         className={cn(
           'group relative flex h-10 w-full items-center gap-3 rounded-lg px-3 text-left text-[13.5px] font-medium transition-colors',
+          collapsed && 'justify-center px-0',
           inRewards ? 'bg-navy-active text-white' : 'text-white/65 hover:bg-white/[0.05] hover:text-white',
         )}
       >
         {inRewards ? <span className="absolute inset-y-2 left-0 w-0.5 rounded-full bg-gold" aria-hidden="true" /> : null}
         <Gift className={cn('size-[18px] shrink-0', inRewards ? 'text-white' : 'text-white/55 group-hover:text-white')} aria-hidden="true" />
-        <span className="flex-1">Rewards Engine</span>
-        <ChevronDown className={cn('size-4 text-white/50 transition-transform duration-200', open && 'rotate-180')} aria-hidden="true" />
+        <span className={cn('flex-1', collapsed && 'sr-only')}>Rewards Engine</span>
+        {collapsed ? null : <ChevronDown className={cn('size-4 text-white/50 transition-transform duration-200', open && 'rotate-180')} aria-hidden="true" />}
       </button>
 
-      <div className={cn('grid transition-[grid-template-rows] duration-200 ease-out', open ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
+      <div className={cn('grid transition-[grid-template-rows] duration-200 ease-out', open && !collapsed ? 'grid-rows-[1fr]' : 'grid-rows-[0fr]')}>
         <div className="overflow-hidden">
           <ul id="rewards-engine-submenu" className="relative mt-1 flex flex-col gap-0.5 pb-1 pl-[22px]">
             <span className="absolute inset-y-1 left-[21px] w-px bg-white/10" aria-hidden="true" />
@@ -77,7 +89,7 @@ function RewardsGroup({ onNavigate }: { onNavigate?: () => void }) {
                   <Link
                     href={href}
                     onClick={onNavigate}
-                    tabIndex={open ? undefined : -1}
+                    tabIndex={open && !collapsed ? undefined : -1}
                     aria-current={active ? 'page' : undefined}
                     className={cn(
                       'relative ml-2 flex h-8 items-center gap-2.5 rounded-md px-2.5 text-[12.5px] transition-colors',
@@ -98,26 +110,26 @@ function RewardsGroup({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
-function SidebarBody({ brand, onNavigate }: { brand: string; onNavigate?: () => void }) {
+function SidebarBody({ brand, collapsed, onExpand, onNavigate }: { brand: string; collapsed?: boolean; onExpand?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname()
   return (
     <div className="flex h-full flex-col bg-navy text-white">
-      <div className="flex h-[74px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5">
+      <div className={cn('flex h-[74px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5', collapsed && 'justify-center px-0')}>
         <BrandMark />
-        <div className="min-w-0">
+        <div className={cn('min-w-0', collapsed && 'sr-only')}>
           <p className="truncate text-[13.5px] font-semibold leading-tight tracking-tight">{brand}</p>
           <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-white/45">Admin Panel</p>
         </div>
       </div>
 
       <nav aria-label="Admin modules" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-5 [scrollbar-width:thin]">
-        <p className="px-3 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/35">Main menu</p>
-        <NavItem href="/admin/dashboard" label="Dashboard" icon={LayoutDashboard} active={isUnder(pathname, '/admin/dashboard')} onNavigate={onNavigate} />
-        <RewardsGroup onNavigate={onNavigate} />
-        <NavItem href="/admin/contractors" label="Contractor" icon={Users} active={isUnder(pathname, '/admin/contractors')} onNavigate={onNavigate} />
+        <p className={cn('px-3 pb-2 text-[10.5px] font-semibold uppercase tracking-[0.14em] text-white/35', collapsed && 'sr-only')}>Main menu</p>
+        <NavItem href="/admin/dashboard" label="Dashboard" icon={LayoutDashboard} active={isUnder(pathname, '/admin/dashboard')} collapsed={collapsed} onNavigate={onNavigate} />
+        <RewardsGroup collapsed={collapsed} onExpandSidebar={onExpand} onNavigate={onNavigate} />
+        <NavItem href="/admin/contractors" label="Contractor" icon={Users} active={isUnder(pathname, '/admin/contractors')} collapsed={collapsed} onNavigate={onNavigate} />
       </nav>
 
-      <div className="shrink-0 border-t border-white/[0.07] px-5 py-4">
+      <div className={cn('shrink-0 border-t border-white/[0.07] px-5 py-4', collapsed && 'hidden')}>
         <p className="text-[11px] text-white/40">Contractor Rewards Programme</p>
       </div>
     </div>
@@ -156,6 +168,16 @@ export function AdminShell({
   children: ReactNode
 }) {
   const [open, setOpen] = useState(false)
+  const [collapsed, setCollapsed] = useState(false)
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === '1')
+  }, [])
+
+  const updateCollapsed = (value: boolean) => {
+    setCollapsed(value)
+    window.localStorage.setItem(COLLAPSE_KEY, value ? '1' : '0')
+  }
   const { crumbs, title } = useBreadcrumbs()
   const initials = adminName
     .split(' ')
@@ -168,8 +190,13 @@ export function AdminShell({
 
   return (
     <div className="flex min-h-dvh bg-app-bg">
-      <aside className="sticky top-0 hidden h-dvh w-[260px] shrink-0 lg:block">
-        <SidebarBody brand={brand} />
+      <aside
+        className={cn(
+          'sticky top-0 hidden h-dvh shrink-0 overflow-hidden transition-[width] duration-200 ease-out lg:block',
+          collapsed ? 'w-[76px]' : 'w-[260px]',
+        )}
+      >
+        <SidebarBody brand={brand} collapsed={collapsed} onExpand={() => updateCollapsed(false)} />
       </aside>
 
       <Sheet open={open} onOpenChange={setOpen}>
@@ -189,6 +216,17 @@ export function AdminShell({
           >
             <Menu className="size-5" aria-hidden="true" />
           </button>
+
+          <button
+            type="button"
+            onClick={() => updateCollapsed(!collapsed)}
+            className="hidden size-9 shrink-0 items-center justify-center rounded-lg text-ink-muted transition-colors hover:bg-app-bg hover:text-ink lg:flex"
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-pressed={collapsed}
+          >
+            {collapsed ? <PanelLeftOpen className="size-[18px]" aria-hidden="true" /> : <PanelLeftClose className="size-[18px]" aria-hidden="true" />}
+          </button>
+          <span className="hidden h-7 w-px bg-border lg:block" aria-hidden="true" />
 
           <div className="min-w-0 flex-1">
             <nav aria-label="Breadcrumb">
@@ -290,6 +328,7 @@ export function AdminShell({
 
         <main className="mx-auto flex w-full max-w-[1440px] min-w-0 flex-1 flex-col gap-6 p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
+      <Toaster position="top-right" theme="light" richColors closeButton />
     </div>
   )
 }

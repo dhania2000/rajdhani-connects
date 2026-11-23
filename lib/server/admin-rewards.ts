@@ -615,8 +615,21 @@ export async function getDashboardMetrics() {
             COALESCE((SELECT SUM(eligible_amount) FROM reward_activities a WHERE a.contractor_id = c.id AND a.status = 'approved'), 0) AS sales
      FROM contractors c ORDER BY earned DESC, sales DESC LIMIT 5`,
   )
-  const recent = await query<{ id: number; action: string; summary: string | null; created_at: string }>(
-    'SELECT id, action, summary, created_at FROM audit_logs ORDER BY id DESC LIMIT 8',
+  const recent = await query<{
+    id: number
+    action: string
+    summary: string | null
+    created_at: string
+    actor_type: 'admin' | 'contractor' | 'system'
+    entity_type: string
+    actor_name: string | null
+  }>(
+    `SELECT l.id, l.action, l.summary, l.created_at, l.actor_type, l.entity_type,
+            CASE l.actor_type WHEN 'admin' THEN a.name WHEN 'contractor' THEN c.name ELSE NULL END AS actor_name
+     FROM audit_logs l
+     LEFT JOIN admins a ON l.actor_type = 'admin' AND a.id = l.actor_id
+     LEFT JOIN contractors c ON l.actor_type = 'contractor' AND c.id = l.actor_id
+     ORDER BY l.id DESC LIMIT 8`,
   )
   return { counts: counts!, monthly, top, recent }
 }
