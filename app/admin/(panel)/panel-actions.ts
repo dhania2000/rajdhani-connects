@@ -6,6 +6,8 @@ import { requireAdmin } from '@/lib/server/auth'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import {
   adjustContractorPoints,
+  bulkAdjustContractorPoints,
+  bulkAdjustmentSchema,
   adjustmentSchema,
   changeContractorStatus,
   contractorDetailsSchema,
@@ -191,6 +193,27 @@ export async function adjustPointsAction(_: AdminActionState, fd: FormData): Pro
   const parsed = parse(adjustmentSchema, entries(fd))
   if ('error' in parsed) return { error: parsed.error }
   return done(await adjustContractorPoints(admin, id, parsed.data), 'Balance adjusted.')
+}
+
+export async function bulkAdjustPointsAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const parsed = parse(bulkAdjustmentSchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const ids = fd
+    .getAll('contractorIds')
+    .map((v) => Number(v))
+    .filter((n) => Number.isInteger(n) && n > 0)
+  const result = await bulkAdjustContractorPoints(admin, parsed.data, ids)
+  revalidatePath('/admin', 'layout')
+  if (!result.ok) return { error: result.error }
+  const verb = parsed.data.direction === 'credit' ? 'Assigned to' : 'Deducted from'
+  const base = `${verb} ${result.applied} contractor(s).`
+  if (result.skipped.length === 0) return { ok: true, message: base }
+  const names = result.skipped.slice(0, 5).map((s) => `${s.name} (${s.error})`).join(', ')
+  const more = result.skipped.length > 5 ? ` and ${result.skipped.length - 5} more` : ''
+  return result.applied > 0
+    ? { ok: true, message: `${base} Skipped ${result.skipped.length}: ${names}${more}.` }
+    : { error: `Nothing was posted. Skipped ${result.skipped.length}: ${names}${more}.` }
 }
 
 export async function assignGiftAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
