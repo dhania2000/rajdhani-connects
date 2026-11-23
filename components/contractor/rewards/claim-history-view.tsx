@@ -16,7 +16,7 @@ const steps: { key: ClaimStatus; label: string }[] = [
 ]
 
 export function ClaimHistoryView() {
-  const { claims, advanceClaim } = useContractor()
+  const { claims } = useContractor()
 
   if (claims.length === 0) {
     return (
@@ -36,7 +36,6 @@ export function ClaimHistoryView() {
 
   return (
     <main className="flex flex-col gap-3 p-4">
-      <p className="text-xs text-ink-muted">Demo mode: use &ldquo;Simulate next step&rdquo; to preview the approval flow.</p>
       <ul className="flex flex-col gap-3">
         {claims.map((c) => {
           const current = steps.findIndex((s) => s.key === c.status)
@@ -52,6 +51,11 @@ export function ClaimHistoryView() {
                 <StatusPill status={c.status} />
               </div>
 
+              {c.status === 'rejected' ? (
+                <p className="mt-3 rounded-lg bg-danger/10 p-3 text-[13px] text-[#b42318]">
+                  This request was not approved. Reserved points have been returned to your balance.
+                </p>
+              ) : (
               <ol className="mt-4 flex items-center" aria-label="Claim progress">
                 {steps.map((s, i) => (
                   <li key={s.key} className={cn('flex items-center', i < steps.length - 1 && 'flex-1')}>
@@ -73,16 +77,9 @@ export function ClaimHistoryView() {
                   </li>
                 ))}
               </ol>
-
-              {c.status !== 'delivered' && (
-                <button
-                  type="button"
-                  onClick={() => advanceClaim(c.id)}
-                  className="mt-3 h-9 w-full rounded-lg border border-brand/30 text-[13px] font-semibold text-brand hover:bg-lavender"
-                >
-                  Simulate next step
-                </button>
               )}
+
+
             </li>
           )
         })}

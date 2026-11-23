@@ -25,18 +25,27 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
   const eligible = shortfall <= 0 && !outOfStock && !hasPending
   const avail = availabilityLabel[gift.availability]
 
-  const confirm = () => {
+  const idempotencyKey = useRef<string | null>(null)
+
+  const confirm = async () => {
     if (submitting.current) return
     submitting.current = true
     setBusy(true)
-    setTimeout(() => {
-      const result = claimGift(gift)
+    idempotencyKey.current ??= crypto.randomUUID()
+    try {
+      const result = await claimGift(gift, idempotencyKey.current)
       if (result.ok) setSuccess(result.claim)
-      else setError(result.reason)
+      else {
+        setError(result.reason)
+        idempotencyKey.current = null
+      }
+    } catch {
+      setError('Could not submit your request. Please check your connection and try again.')
+    } finally {
       setBusy(false)
       setOpen(false)
       submitting.current = false
-    }, 700)
+    }
   }
 
   if (success) {
@@ -48,7 +57,7 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
         <h2 className="text-lg font-bold text-ink">Request submitted</h2>
         <p className="text-sm text-ink-muted">
           Your request <span className="font-semibold text-ink">{success.id}</span> for {gift.name} has been recorded.{' '}
-          {formatPoints(gift.points)} were reserved from your balance. This is a demo — no real order is placed.
+          {formatPoints(gift.points)} were reserved from your balance. The store will review it and contact you for handover.
         </p>
         <div className="mt-3 grid w-full grid-cols-2 gap-2.5">
           <Link href="/contractor/rewards/catalogue" className="flex h-11 items-center justify-center rounded-lg border border-border bg-white text-sm font-semibold text-ink">

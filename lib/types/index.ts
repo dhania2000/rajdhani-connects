@@ -57,7 +57,7 @@ export interface Gift {
   availability: GiftAvailability
 }
 
-export type ClaimStatus = 'requested' | 'approved' | 'delivered'
+export type ClaimStatus = 'requested' | 'approved' | 'delivered' | 'rejected'
 
 export interface RewardClaim {
   id: string

@@ -1,9 +1,10 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useTransition } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Bell, ChevronRight, HelpCircle, LogOut, MessageCircle, Pencil, Phone } from 'lucide-react'
+import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone } from 'lucide-react'
+import { contractorLogoutAction } from '@/app/contractor/actions'
 import { formatDate } from '@/lib/format'
 import type { NotificationPreferences } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
@@ -22,11 +23,11 @@ const prefLabels: Record<keyof NotificationPreferences, string> = {
 
 export function ProfileView() {
   const router = useRouter()
-  const { profile, preferences, setPreference, updateProfile, resetDemo } = useContractor()
+  const { profile, preferences, setPreference, storePhone } = useContractor()
   const [panel, setPanel] = useState<Panel>('none')
-  const [editing, setEditing] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
-  const [draft, setDraft] = useState({ mobile: profile.mobile, address: profile.address, area: profile.area })
+  const [pending, startTransition] = useTransition()
+  const phoneDigits = storePhone.replace(/\D/g, '')
 
   const details: [string, string][] = [
     ['Contractor ID', profile.id],
@@ -64,14 +65,7 @@ export function ProfileView() {
       </section>
 
       <section className="overflow-hidden rounded-xl bg-white shadow-[0_1px_4px_rgba(28,35,64,0.08)]" aria-label="Settings">
-        <MenuRow
-          icon={Pencil}
-          label="Edit Profile"
-          onClick={() => {
-            setDraft({ mobile: profile.mobile, address: profile.address, area: profile.area })
-            setEditing(true)
-          }}
-        />
+        <MenuRow icon={KeyRound} label="Change Password" onClick={() => router.push('/contractor/change-password')} />
         <MenuRow icon={Bell} label="Notification Preferences" expanded={panel === 'preferences'} onClick={() => setPanel(panel === 'preferences' ? 'none' : 'preferences')} />
         {panel === 'preferences' && (
           <div className="flex flex-col gap-1 border-t border-border bg-app-bg px-4 py-2">
@@ -92,11 +86,11 @@ export function ProfileView() {
         <MenuRow icon={HelpCircle} label="Help & Support" expanded={panel === 'help'} onClick={() => setPanel(panel === 'help' ? 'none' : 'help')} />
         {panel === 'help' && (
           <div className="grid grid-cols-2 gap-2.5 border-t border-border bg-app-bg p-4">
-            <a href="tel:+911412345678" className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
+            <a href={`tel:+${phoneDigits}`} className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
               <Phone className="size-4 text-brand" aria-hidden="true" /> Call Store
             </a>
             <a
-              href="https://wa.me/911412345678"
+              href={`https://wa.me/${phoneDigits}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs"
@@ -109,46 +103,14 @@ export function ProfileView() {
       </section>
 
       <ConfirmationDialog
-        open={editing}
-        title="Edit Profile"
-        confirmLabel="Save"
-        onCancel={() => setEditing(false)}
-        onConfirm={() => {
-          updateProfile({
-            mobile: draft.mobile.trim() || profile.mobile,
-            address: draft.address.trim() || profile.address,
-            area: draft.area.trim() || profile.area,
-          })
-          setEditing(false)
-        }}
-      >
-        <div className="mt-4 flex flex-col gap-3">
-          {(['mobile', 'address', 'area'] as const).map((field) => (
-            <label key={field} className="text-[12px] font-medium text-ink-muted capitalize">
-              {field === 'mobile' ? 'Mobile number' : field}
-              <input
-                type={field === 'mobile' ? 'tel' : 'text'}
-                value={draft[field]}
-                maxLength={field === 'mobile' ? 16 : 120}
-                onChange={(e) => setDraft((d) => ({ ...d, [field]: e.target.value }))}
-                className="mt-1 h-10 w-full rounded-lg border border-border px-3 text-sm text-ink focus-visible:outline-2 focus-visible:outline-brand"
-              />
-            </label>
-          ))}
-        </div>
-      </ConfirmationDialog>
-
-      <ConfirmationDialog
         open={loggingOut}
+        busy={pending}
         tone="danger"
         title="Log out?"
-        description="This demo will reset your local data and return to the welcome screen."
+        description="You will need your username and password to sign in again."
         confirmLabel="Logout"
         onCancel={() => setLoggingOut(false)}
-        onConfirm={() => {
-          resetDemo()
-          router.push('/logged-out')
-        }}
+        onConfirm={() => startTransition(() => contractorLogoutAction())}
       />
     </main>
   )
