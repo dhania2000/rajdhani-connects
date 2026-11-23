@@ -469,6 +469,24 @@ CREATE TABLE IF NOT EXISTS contractor_targets (
   CONSTRAINT fk_targets_rule       FOREIGN KEY (rule_id)       REFERENCES reward_rules (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Store-maintained account statement (Udhar / Advance) shown on the contractor's My Ledger screen.
+CREATE TABLE IF NOT EXISTS contractor_account_entries (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  entry_type          ENUM('opening','credit','debit','udhar','advance') NOT NULL,
+  amount              DECIMAL(14,2)   NOT NULL,
+  description         VARCHAR(200)    NOT NULL,
+  reference           VARCHAR(80)     NULL,
+  entry_date          DATE            NOT NULL,
+  created_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_account_entries_contractor (contractor_id, entry_date),
+  CONSTRAINT fk_account_entries_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_account_entries_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS notifications (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   kind                ENUM('reward','sale','offer','system') NOT NULL DEFAULT 'system',
