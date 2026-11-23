@@ -211,7 +211,7 @@ CREATE TABLE IF NOT EXISTS reward_rules (
   parent_rule_id      BIGINT UNSIGNED NULL,
   name                VARCHAR(150)    NOT NULL,
   description         TEXT            NULL,
-  rule_type           ENUM('per_unit','per_amount','fixed_bonus','target','category','brand','product','time_bound','contractor_specific','manual_only') NOT NULL,
+  rule_type           ENUM('quantity','purchase_value','brand','product','category','cumulative_target','milestone','campaign','direct_gift','manual_bonus') NOT NULL,
   product_category    VARCHAR(80)     NULL,
   brand               VARCHAR(80)     NULL,
   product_ref         VARCHAR(120)    NULL,
@@ -605,4 +605,6 @@ INSERT IGNORE INTO contractor_app_configuration (config_key, config_value) VALUE
   ('store_phone',     '+911412345678'),
   ('store_whatsapp',  '911412345678'),
   ('ledger_enabled',  'false'),
-  ('support_message', 'For password resets or account changes, contact Rajdhani Tiles & Sanitary.');
+  ('support_message', 'For password resets or account changes, contact Rajdhani Tiles & Sanitary.'),
+  ('activity_approval_mode', 'manual'),
+  ('points_expiry_days', '0');

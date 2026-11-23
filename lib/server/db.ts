@@ -32,7 +32,36 @@ export function getPool(): Pool {
   return globalForDb.rtsPool
 }
 
+const globalForSchema = globalThis as unknown as { rtsSchema?: Promise<void> }
+
+// Creates every table on first use against an empty database, so the store never has to import SQL by hand.
+export function ensureSchema() {
+  globalForSchema.rtsSchema ??= (async () => {
+    const [rows] = await getPool().query<RowDataPacket[]>(
+      "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'audit_logs'",
+    )
+    if (Number(rows[0]?.n ?? 0) > 0) return
+    const [{ readFile }, path] = await Promise.all([import('node:fs/promises'), import('node:path')])
+    const sql = await readFile(path.join(process.cwd(), 'database', 'schema.sql'), 'utf8')
+    const conn = await mysql.createConnection({
+      uri: process.env.DATABASE_URL,
+      multipleStatements: true,
+      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    })
+    try {
+      await conn.query(sql)
+    } finally {
+      await conn.end()
+    }
+  })().catch((error) => {
+    globalForSchema.rtsSchema = undefined
+    throw error
+  })
+  return globalForSchema.rtsSchema
+}
+
 export async function query<T = RowDataPacket>(sql: string, params: unknown[] = [], conn?: Conn): Promise<T[]> {
+  if (!conn) await ensureSchema()
   const [rows] = await (conn ?? getPool()).query<RowDataPacket[]>(sql, params)
   return rows as T[]
 }
@@ -43,11 +72,13 @@ export async function queryOne<T = RowDataPacket>(sql: string, params: unknown[]
 }
 
 export async function execute(sql: string, params: unknown[] = [], conn?: Conn): Promise<ResultSetHeader> {
+  if (!conn) await ensureSchema()
   const [result] = await (conn ?? getPool()).execute<ResultSetHeader>(sql, params as never[])
   return result
 }
 
 export async function withTransaction<T>(fn: (conn: PoolConnection) => Promise<T>): Promise<T> {
+  await ensureSchema()
   const conn = await getPool().getConnection()
   try {
     await conn.beginTransaction()

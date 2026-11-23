@@ -51,13 +51,6 @@ export const contractorDetailsSchema = z.object({
 })
 
 export const createContractorSchema = contractorDetailsSchema.extend({
-  username: z
-    .string()
-    .trim()
-    .toLowerCase()
-    .optional()
-    .transform((v) => (v ? v : null))
-    .refine((v) => v === null || /^[a-z0-9._-]{4,40}$/.test(v), 'Username: 4-40 letters, numbers, dot, dash or underscore.'),
   activateNow: z.boolean(),
 })
 
@@ -73,31 +66,14 @@ export interface IssuedCredentials {
   temporaryPassword: string
 }
 
-function baseUsername(name: string) {
-  const slug = name
-    .toLowerCase()
-    .normalize('NFKD')
-    .replace(/[^a-z0-9]+/g, '')
-    .slice(0, 12)
-  return slug.length >= 3 ? slug : 'contractor'
-}
-
-async function uniqueUsername(name: string) {
-  const base = baseUsername(name)
-  for (let i = 0; i < 20; i++) {
-    const candidate = `${base}${Math.floor(100 + Math.random() * 9900)}`
-    const taken = await queryOne('SELECT 1 FROM contractor_credentials WHERE username = ?', [candidate])
-    if (!taken) return candidate
-  }
-  return `${base}${Date.now().toString().slice(-6)}`
-}
-
+// Store policy: the registered mobile number is both the username and the first password.
+// The contractor is forced to choose a new password on first login.
 export async function createContractor(
   admin: AdminSession,
   input: CreateContractorInput,
 ): Promise<{ ok: true; credentials: IssuedCredentials } | { ok: false; error: string; field?: string }> {
-  const username = input.username ?? (await uniqueUsername(input.name))
-  const temporaryPassword = generateTemporaryPassword()
+  const username = input.mobile
+  const temporaryPassword = input.mobile
   const passwordHash = await hashPassword(temporaryPassword)
 
   try {
@@ -185,7 +161,8 @@ export async function createContractor(
 
 export async function updateContractorDetails(admin: AdminSession, contractorId: number, input: ContractorDetailsInput) {
   try {
-    const result = await execute(
+    const result = await withTransaction(async (conn) => {
+      const updated = await execute(
       `UPDATE contractors SET name = ?, mobile = ?, alternate_mobile = ?, email = ?, address = ?, area = ?, city = ?,
          district = ?, state = ?, pin_code = ?, joining_date = ?, notes = ?
        WHERE id = ?`,
@@ -204,7 +181,13 @@ export async function updateContractorDetails(admin: AdminSession, contractorId:
         input.notes,
         contractorId,
       ],
-    )
+      conn,
+      )
+      if (updated.affectedRows > 0) {
+        await execute('UPDATE contractor_credentials SET username = ? WHERE contractor_id = ?', [input.mobile, contractorId], conn)
+      }
+      return updated
+    })
     if (result.affectedRows === 0) return { ok: false as const, error: 'Contractor not found.' }
     await writeAudit({
       actorType: 'admin',
@@ -291,7 +274,7 @@ export async function resetContractorPassword(admin: AdminSession, contractorId:
     [contractorId],
   )
   if (!contractor) return { ok: false as const, error: 'Contractor not found.' }
-  const temporaryPassword = generateTemporaryPassword()
+  const temporaryPassword = contractor.mobile
   const hash = await hashPassword(temporaryPassword)
   await withTransaction(async (conn) => {
     await execute(
@@ -347,6 +330,7 @@ export async function unlockContractor(admin: AdminSession, contractorId: number
 
 export const adjustmentSchema = z.object({
   direction: z.enum(['credit', 'debit']),
+  currency: z.enum(['points', 'tokens']).default('points'),
   amount: z.coerce.number().int('Whole points only.').min(1, 'Enter at least 1 point.').max(10_000_000),
   reason: z.string().trim().min(5, 'Give a reason of at least 5 characters.').max(255),
   idempotencyKey: z.string().uuid(),
@@ -357,8 +341,15 @@ export async function adjustContractorPoints(admin: AdminSession, contractorId: 
     const result = await withTransaction(async (conn) => {
       const exists = await queryOne('SELECT 1 FROM contractors WHERE id = ? FOR UPDATE', [contractorId], conn)
       if (!exists) return { ok: false as const, error: 'Contractor not found.' }
+      const tokenCategory =
+        input.currency === 'tokens'
+          ? await queryOne<{ id: number }>("SELECT id FROM token_categories WHERE code = 'general'", [], conn)
+          : null
+      const unit = input.currency === 'tokens' ? 'tokens' : 'points'
       const posted = await postLedgerEntry(conn, {
         contractorId,
+        currency: input.currency,
+        tokenCategoryId: tokenCategory?.id ?? null,
         entryType: input.direction === 'credit' ? 'manual_credit' : 'manual_debit',
         amount: input.amount,
         idempotencyKey: `manual:${input.idempotencyKey}`,
@@ -374,7 +365,7 @@ export async function adjustContractorPoints(admin: AdminSession, contractorId: 
             action: `ledger.manual_${input.direction}`,
             entityType: 'contractor',
             entityId: contractorId,
-            summary: `${input.direction === 'credit' ? '+' : '-'}${input.amount} pts: ${input.reason}`,
+            summary: `${input.direction === 'credit' ? '+' : '-'}${input.amount} ${unit}: ${input.reason}`,
             metadata: { transactionId: posted.transactionId },
           },
           conn,
@@ -382,8 +373,8 @@ export async function adjustContractorPoints(admin: AdminSession, contractorId: 
         if (input.direction === 'credit') {
           const n = await execute(
             `INSERT INTO notifications (kind, event_type, title, body, created_by_type, created_by_id)
-             VALUES ('reward', 'points_credited', 'Reward points credited', ?, 'admin', ?)`,
-            [`${input.amount.toLocaleString('en-IN')} points were added to your balance. ${input.reason}`.slice(0, 500), admin.adminId],
+             VALUES ('reward', 'points_credited', 'Reward credited', ?, 'admin', ?)`,
+            [`${input.amount.toLocaleString('en-IN')} ${unit} were added to your balance. ${input.reason}`.slice(0, 500), admin.adminId],
             conn,
           )
           await execute('INSERT INTO notification_recipients (notification_id, contractor_id) VALUES (?, ?)', [n.insertId, contractorId], conn)
