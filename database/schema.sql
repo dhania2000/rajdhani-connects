@@ -8,7 +8,12 @@
 --   2. Import this file into that database (phpMyAdmin > Import, or
 --      `mysql -u USER -p DBNAME < schema.sql`).
 --   3. Set these environment variables on the app (v0 Settings > Vars, or Vercel):
---        DATABASE_URL         mysql://USER:PASSWORD@HOST:3306/DBNAME
+--        DB_HOST              your MySQL host (e.g. mysql.example.com)
+--        DB_PORT              3306 (optional, defaults to 3306)
+--        DB_NAME              the database name
+--        DB_USERNAME          the database user
+--        DB_PASSWORD          that user's password
+--        DB_SSL               optional, set to "true" if your host requires SSL
 --        SUPER_ADMIN_EMAIL    the email you will use to sign in to /admin/login
 --        SUPER_ADMIN_PASSWORD a strong password (min 10 chars) for the first login
 --      On the first admin sign-in the Super Admin account is created with a
