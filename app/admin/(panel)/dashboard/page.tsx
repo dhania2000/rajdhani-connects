@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { ClipboardCheck, Coins, Gift, UserCheck, UserPlus, Users } from 'lucide-react'
 import { getDashboardMetrics } from '@/lib/server/admin-rewards'
 import { PointsChart } from '@/components/admin/dashboard/points-chart'
-import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, PageHeader, Panel, StatCard, Td } from '@/components/admin/ui'
+import { RecentActivity } from '@/components/admin/dashboard/recent-activity'
+import { DataTable, EmptyState, fmtCurrency, fmtNumber, PageHeader, Panel, StatCard, Td } from '@/components/admin/ui'
 
 export default async function AdminDashboardPage() {
   const { counts, monthly, top, recent } = await getDashboardMetrics()
@@ -32,20 +33,7 @@ export default async function AdminDashboardPage() {
           {recent.length === 0 ? (
             <EmptyState title="No activity yet" />
           ) : (
-            <ul className="-my-1 flex flex-col divide-y divide-border">
-              {recent.map((r) => (
-                <li key={r.id} className="flex gap-3 py-3">
-                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand/60" aria-hidden="true" />
-                  <div className="min-w-0 flex-1">
-                    <p className="text-pretty text-[13px] leading-snug text-ink">{r.summary ?? r.action}</p>
-                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-ink-muted">
-                      <span className="rounded bg-app-bg px-1.5 py-px font-mono text-[10.5px]">{r.action}</span>
-                      <span>{fmtDate(r.created_at)}</span>
-                    </div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <RecentActivity items={recent} />
           )}
         </Panel>
       </div>

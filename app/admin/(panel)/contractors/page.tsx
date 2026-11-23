@@ -5,6 +5,7 @@ import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
 import { CheckboxInput } from '@/components/admin/fields'
 import { ContractorFields } from '@/components/admin/contractors/contractor-fields'
+import { ContractorRowActions } from '@/components/admin/contractors/contractor-row-actions'
 import { DataTable, EmptyState, fmtDate, fmtNumber, PageHeader, Panel, StatusBadge, Td } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { createContractorAction } from '../panel-actions'
@@ -82,7 +83,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
         {rows.length === 0 ? (
           <EmptyState title="No contractors found" description={q ? 'Try a different search.' : 'Add a contractor to get started.'} />
         ) : (
-          <DataTable head={['Contractor', 'Mobile', 'Location', 'Status', 'Points', 'Joined', 'Last login']}>
+          <DataTable head={['Contractor', 'Mobile', 'Location', 'Status', 'Points', 'Joined', 'Last login', <span key="actions" className="sr-only">Actions</span>]}>
             {rows.map((c) => (
               <tr key={c.id} className="hover:bg-app-bg/60">
                 <Td>
@@ -105,6 +106,9 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
                 </Td>
                 <Td>{fmtDate(c.joining_date)}</Td>
                 <Td>{c.last_login_at ? fmtDate(c.last_login_at) : 'Never'}</Td>
+                <Td className="w-10 text-right">
+                  <ContractorRowActions id={c.id} name={c.name} code={c.contractor_code} />
+                </Td>
               </tr>
             ))}
           </DataTable>
