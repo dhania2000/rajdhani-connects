@@ -713,3 +713,12 @@ export async function getContractorPerformance(contractorId: number, from: strin
     pending: Number(row?.pending ?? 0),
   }
 }
+
+export async function getAdminAlertCount() {
+  const row = await queryOne<{ total: number }>(
+    `SELECT
+       (SELECT COUNT(*) FROM reward_activities WHERE status = 'submitted') +
+       (SELECT COUNT(*) FROM redemption_requests WHERE status = 'requested') AS total`,
+  )
+  return Number(row?.total ?? 0)
+}

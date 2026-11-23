@@ -2,12 +2,13 @@ import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-export function PageHeader({ title, description, actions }: { title: string; description?: string; actions?: ReactNode }) {
+export function PageHeader({ title, description, actions, eyebrow }: { title: string; description?: string; actions?: ReactNode; eyebrow?: string }) {
   return (
     <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-      <div>
-        <h1 className="text-balance text-2xl font-semibold tracking-tight text-ink">{title}</h1>
-        {description ? <p className="mt-1 text-pretty text-sm text-ink-muted">{description}</p> : null}
+      <div className="min-w-0">
+        {eyebrow ? <p className="mb-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-strong">{eyebrow}</p> : null}
+        <h1 className="text-balance text-[22px] font-semibold leading-tight tracking-tight text-ink">{title}</h1>
+        {description ? <p className="mt-1 max-w-2xl text-pretty text-sm leading-relaxed text-ink-muted">{description}</p> : null}
       </div>
       {actions ? <div className="flex flex-wrap gap-2">{actions}</div> : null}
     </div>
@@ -16,12 +17,12 @@ export function PageHeader({ title, description, actions }: { title: string; des
 
 export function Panel({ title, description, actions, children, className }: { title?: string; description?: string; actions?: ReactNode; children: ReactNode; className?: string }) {
   return (
-    <section className={cn('rounded-xl border border-border bg-white p-5 shadow-xs', className)}>
+    <section className={cn('min-w-0 rounded-[14px] border border-border bg-white p-4 shadow-[0_1px_2px_rgba(24,33,63,0.04)] sm:p-5', className)}>
       {title ? (
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-base font-semibold text-ink">{title}</h2>
-            {description ? <p className="mt-0.5 text-sm text-ink-muted">{description}</p> : null}
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3 border-b border-border pb-4">
+          <div className="min-w-0">
+            <h2 className="text-[15px] font-semibold tracking-tight text-ink">{title}</h2>
+            {description ? <p className="mt-0.5 text-pretty text-[13px] leading-relaxed text-ink-muted">{description}</p> : null}
           </div>
           {actions}
         </div>
@@ -31,22 +32,25 @@ export function Panel({ title, description, actions, children, className }: { ti
   )
 }
 
-export function StatCard({ label, value, icon: Icon, tone = 'brand', hint }: { label: string; value: string | number; icon: LucideIcon; tone?: 'brand' | 'green' | 'amber' | 'red'; hint?: string }) {
+export function StatCard({ label, value, icon: Icon, tone = 'brand', hint }: { label: string; value: string | number; icon: LucideIcon; tone?: 'brand' | 'green' | 'amber' | 'red' | 'gold'; hint?: string }) {
   const tones = {
-    brand: 'bg-brand/10 text-brand',
-    green: 'bg-emerald-50 text-emerald-700',
-    amber: 'bg-amber-50 text-amber-700',
-    red: 'bg-red-50 text-red-700',
+    brand: 'bg-brand/[0.08] text-brand',
+    green: 'bg-success/10 text-success',
+    amber: 'bg-warn/10 text-warn',
+    red: 'bg-danger/10 text-danger',
+    gold: 'bg-gold/15 text-gold-strong',
   }
   return (
-    <div className="flex items-start gap-4 rounded-xl border border-border bg-white p-5 shadow-xs">
-      <span className={cn('flex size-10 shrink-0 items-center justify-center rounded-lg', tones[tone])}>
-        <Icon className="size-5" aria-hidden="true" />
-      </span>
+    <div className="flex min-h-[124px] flex-col justify-between gap-4 rounded-[14px] border border-border bg-white p-5 shadow-[0_1px_2px_rgba(24,33,63,0.04)] transition-shadow hover:shadow-[0_4px_16px_rgba(24,33,63,0.06)]">
+      <div className="flex items-start justify-between gap-3">
+        <p className="text-[13px] font-medium text-ink-muted">{label}</p>
+        <span className={cn('flex size-8 shrink-0 items-center justify-center rounded-lg', tones[tone])}>
+          <Icon className="size-4" aria-hidden="true" />
+        </span>
+      </div>
       <div className="min-w-0">
-        <p className="text-sm text-ink-muted">{label}</p>
-        <p className="mt-1 text-2xl font-semibold tabular-nums text-ink">{value}</p>
-        {hint ? <p className="mt-0.5 text-xs text-ink-muted">{hint}</p> : null}
+        <p className="text-[26px] font-semibold leading-none tracking-tight tabular-nums text-ink">{value}</p>
+        {hint ? <p className="mt-2 text-xs text-ink-muted">{hint}</p> : null}
       </div>
     </div>
   )
@@ -93,18 +97,18 @@ export function EmptyState({ title, description }: { title: string; description?
 
 export function DataTable({ head, children }: { head: string[]; children: ReactNode }) {
   return (
-    <div className="overflow-x-auto rounded-lg border border-border">
-      <table className="w-full min-w-[640px] text-left text-sm">
-        <thead className="bg-app-bg text-xs uppercase tracking-wide text-ink-muted">
+    <div className="max-w-full overflow-x-auto rounded-[10px] border border-border">
+      <table className="w-full min-w-[640px] text-left text-[13px]">
+        <thead className="border-b border-border bg-[#f9fafc] text-[11px] uppercase tracking-[0.08em] text-ink-muted">
           <tr>
             {head.map((h) => (
-              <th key={h} scope="col" className="px-4 py-3 font-medium">
+              <th key={h} scope="col" className="whitespace-nowrap px-4 py-2.5 font-semibold">
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-border">{children}</tbody>
+        <tbody className="divide-y divide-border [&>tr]:transition-colors [&>tr:hover]:bg-[#fafbfd]">{children}</tbody>
       </table>
     </div>
   )

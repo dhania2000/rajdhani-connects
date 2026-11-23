@@ -1,23 +1,22 @@
 import Link from 'next/link'
 import { ClipboardCheck, Coins, Gift, UserCheck, UserPlus, Users } from 'lucide-react'
 import { getDashboardMetrics } from '@/lib/server/admin-rewards'
+import { PointsChart } from '@/components/admin/dashboard/points-chart'
 import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, PageHeader, Panel, StatCard, Td } from '@/components/admin/ui'
 
 export default async function AdminDashboardPage() {
   const { counts, monthly, top, recent } = await getDashboardMetrics()
-  const maxBar = Math.max(1, ...monthly.flatMap((m) => [Number(m.issued), Number(m.redeemed)]))
-
   return (
     <>
-      <PageHeader title="Dashboard" description="Overview of contractors, sales activity, and reward liability." />
+      <PageHeader title="Dashboard" description="Overview of contractors, reward activities, and reward liability." />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6">
         <StatCard label="Total contractors" value={fmtNumber(counts.contractors_total)} icon={Users} hint={`${fmtNumber(counts.contractors_active)} active`} />
-        <StatCard label="Pending approval" value={fmtNumber(counts.contractors_pending)} icon={UserPlus} tone="amber" />
-        <StatCard label="Sales awaiting review" value={fmtNumber(counts.activities_pending)} icon={ClipboardCheck} tone="amber" />
-        <StatCard label="Open gift claims" value={fmtNumber(counts.redemptions_open)} icon={Gift} tone="red" />
-        <StatCard label="Points outstanding" value={fmtNumber(counts.points_available)} icon={Coins} tone="green" hint={`${fmtNumber(counts.points_reserved)} reserved for claims`} />
-        <StatCard label="Tokens outstanding" value={fmtNumber(counts.tokens_available)} icon={UserCheck} tone="green" />
+        <StatCard label="Pending approval" value={fmtNumber(counts.contractors_pending)} icon={UserPlus} tone="amber" hint="Awaiting account review" />
+        <StatCard label="Activities awaiting review" value={fmtNumber(counts.activities_pending)} icon={ClipboardCheck} tone="amber" hint="Submitted reward activities" />
+        <StatCard label="Open gift claims" value={fmtNumber(counts.redemptions_open)} icon={Gift} tone="red" hint="Requested to handover" />
+        <StatCard label="Points outstanding" value={fmtNumber(counts.points_available)} icon={Coins} tone="gold" hint={`${fmtNumber(counts.points_reserved)} reserved for claims`} />
+        <StatCard label="Tokens outstanding" value={fmtNumber(counts.tokens_available)} icon={UserCheck} tone="green" hint="Available contractor tokens" />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-5">
@@ -25,24 +24,7 @@ export default async function AdminDashboardPage() {
           {monthly.length === 0 ? (
             <EmptyState title="No reward transactions yet" description="Points appear here once sales are approved." />
           ) : (
-            <ul className="flex flex-col gap-4">
-              {monthly.map((m) => (
-                <li key={m.month} className="flex flex-col gap-1.5">
-                  <div className="flex justify-between text-xs text-ink-muted">
-                    <span className="font-medium text-ink">{m.month}</span>
-                    <span>
-                      {fmtNumber(m.issued)} issued / {fmtNumber(m.redeemed)} redeemed
-                    </span>
-                  </div>
-                  <div className="h-2 rounded-full bg-app-bg">
-                    <div className="h-2 rounded-full bg-brand" style={{ width: `${(Number(m.issued) / maxBar) * 100}%` }} />
-                  </div>
-                  <div className="h-2 rounded-full bg-app-bg">
-                    <div className="h-2 rounded-full bg-amber-500" style={{ width: `${(Number(m.redeemed) / maxBar) * 100}%` }} />
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <PointsChart data={monthly} />
           )}
         </Panel>
 
@@ -50,13 +32,17 @@ export default async function AdminDashboardPage() {
           {recent.length === 0 ? (
             <EmptyState title="No activity yet" />
           ) : (
-            <ul className="flex flex-col divide-y divide-border">
+            <ul className="-my-1 flex flex-col divide-y divide-border">
               {recent.map((r) => (
-                <li key={r.id} className="py-2.5 text-sm">
-                  <p className="text-ink">{r.summary ?? r.action}</p>
-                  <p className="text-xs text-ink-muted">
-                    {r.action} &middot; {fmtDate(r.created_at)}
-                  </p>
+                <li key={r.id} className="flex gap-3 py-3">
+                  <span className="mt-1.5 size-1.5 shrink-0 rounded-full bg-brand/60" aria-hidden="true" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-pretty text-[13px] leading-snug text-ink">{r.summary ?? r.action}</p>
+                    <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11.5px] text-ink-muted">
+                      <span className="rounded bg-app-bg px-1.5 py-px font-mono text-[10.5px]">{r.action}</span>
+                      <span>{fmtDate(r.created_at)}</span>
+                    </div>
+                  </div>
                 </li>
               ))}
             </ul>
