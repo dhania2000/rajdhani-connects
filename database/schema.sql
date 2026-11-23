@@ -277,6 +277,7 @@ CREATE TABLE IF NOT EXISTS reward_activities (
   quantity            DECIMAL(12,2)   NOT NULL DEFAULT 0,
   unit                VARCHAR(30)     NULL,
   eligible_amount     DECIMAL(12,2)   NOT NULL DEFAULT 0,
+  manual_points       BIGINT UNSIGNED NULL,
   document_url        VARCHAR(500)    NULL,
   notes               TEXT            NULL,
   status              ENUM('draft','submitted','approved','rejected','reversed') NOT NULL DEFAULT 'submitted',

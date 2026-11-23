@@ -339,12 +339,17 @@ export async function getSales(contractorId: number): Promise<SaleRecord[]> {
     activity_date: string
     product_ref: string | null
     product_category: string | null
+    brand: string | null
+    quantity: number
+    unit: string | null
+    notes: string | null
     eligible_amount: number
+    manual_points: number | null
     status: string
     reward: number
   }>(
     `SELECT a.id, a.activity_code, a.reference_number, a.customer_name, a.activity_date, a.product_ref, a.product_category,
-            a.eligible_amount, a.status,
+            a.brand, a.quantity, a.unit, a.notes, a.eligible_amount, a.manual_points, a.status,
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t
                       WHERE t.activity_id = a.id AND t.entry_type IN ('earn','earn_pending')), 0) AS reward
      FROM reward_activities a
@@ -357,10 +362,12 @@ export async function getSales(contractorId: number): Promise<SaleRecord[]> {
     reference: r.reference_number,
     customer: r.customer_name ?? '-',
     date: toDate(r.activity_date),
-    product: r.product_ref ?? r.product_category ?? '-',
+    product: [r.brand, r.product_ref ?? r.product_category].filter(Boolean).join(' ') || '-',
+    description: r.notes ?? undefined,
+    quantity: Number(r.quantity) > 0 ? `${Number(r.quantity).toLocaleString('en-IN')}${r.unit ? ` ${r.unit}` : ''}` : undefined,
     amount: Number(r.eligible_amount),
     status: r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending',
-    reward: Number(r.reward),
+    reward: r.status === 'submitted' && r.manual_points !== null ? Number(r.manual_points) : Number(r.reward),
   }))
 }
 

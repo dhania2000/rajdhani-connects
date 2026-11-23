@@ -32,8 +32,12 @@ export interface SaleRecord {
   customer: string
   date: string
   product: string
+  /** Admin-entered product description, if any. */
+  description?: string
+  quantity?: string
   amount: number
   status: ApprovalStatus
+  /** Points credited, or the points the admin set for a sale still pending approval. */
   reward: number
 }
 

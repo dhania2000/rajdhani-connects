@@ -336,6 +336,11 @@ export const activitySchema = z.object({
   quantity: z.coerce.number().min(0).max(10_000_000),
   unit: optionalString(30),
   eligibleAmount: z.coerce.number().min(0, 'Amount cannot be negative.').max(1_000_000_000),
+  /** Blank = calculate with the active reward rules on approval. */
+  manualPoints: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int('Whole points only.').min(0, 'Points cannot be negative.').max(10_000_000).nullable(),
+  ),
   notes: optionalString(2000),
 })
 
@@ -372,6 +377,7 @@ async function approveWithinTransaction(conn: PoolConnection, admin: AdminSessio
     product_ref: string | null
     quantity: number
     eligible_amount: number
+    manual_points: number | null
     reference_number: string
     account_status: string
   }>(
@@ -392,10 +398,25 @@ async function approveWithinTransaction(conn: PoolConnection, admin: AdminSessio
     quantity: Number(a.quantity),
     amount: Number(a.eligible_amount),
   }
-  const evaluations = await evaluateRules(facts, conn, a.id)
+  const manualPoints = a.manual_points === null ? null : Number(a.manual_points)
+  // Admin-entered points replace rule calculation for this sale.
+  const evaluations = manualPoints === null ? await evaluateRules(facts, conn, a.id) : []
   const general = await queryOne<{ id: number }>("SELECT id FROM token_categories WHERE code = 'general'", [], conn)
   let points = 0
   let tokens = 0
+  if (manualPoints !== null && manualPoints > 0) {
+    await postLedgerEntry(conn, {
+      contractorId: a.contractor_id,
+      entryType: 'earn',
+      amount: manualPoints,
+      idempotencyKey: `manual:act:${a.id}:points`,
+      reason: `Sale ${a.reference_number}`,
+      activityId: a.id,
+      actorType: 'admin',
+      actorId: admin.adminId,
+    })
+    points += manualPoints
+  }
   for (const e of evaluations.filter((x) => x.applied)) {
     if (e.points > 0) {
       await postLedgerEntry(conn, {
@@ -466,8 +487,8 @@ export async function createActivity(admin: AdminSession, input: ActivityInput, 
       if (!contractor) return { ok: false as const, error: 'Contractor not found.' }
       const r = await execute(
         `INSERT INTO reward_activities (contractor_id, customer_name, reference_number, activity_date, product_category, product_ref, brand,
-           quantity, unit, eligible_amount, notes, status, created_by_admin_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)`,
+           quantity, unit, eligible_amount, manual_points, notes, status, created_by_admin_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'submitted', ?)`,
         [
           input.contractorId,
           input.customerName,
@@ -479,6 +500,7 @@ export async function createActivity(admin: AdminSession, input: ActivityInput, 
           input.quantity,
           input.unit,
           input.eligibleAmount,
+          input.manualPoints,
           input.notes,
           admin.adminId,
         ],
@@ -578,6 +600,8 @@ export interface ActivityListRow {
   product_ref: string | null
   quantity: number
   eligible_amount: number
+  manual_points: number | null
+  notes: string | null
   status: string
   rejection_reason: string | null
   points: number
@@ -602,7 +626,7 @@ export async function listActivities(filters: { status?: string; q?: string; con
   }
   return query<ActivityListRow>(
     `SELECT a.id, a.activity_code, a.contractor_id, c.name AS contractor_name, c.contractor_code, a.customer_name, a.reference_number,
-            a.activity_date, a.product_category, a.brand, a.product_ref, a.quantity, a.eligible_amount, a.status, a.rejection_reason,
+            a.activity_date, a.product_category, a.brand, a.product_ref, a.quantity, a.eligible_amount, a.manual_points, a.notes, a.status, a.rejection_reason,
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t WHERE t.activity_id = a.id AND t.entry_type = 'earn' AND t.currency = 'points'), 0) AS points,
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t WHERE t.activity_id = a.id AND t.entry_type = 'earn' AND t.currency = 'tokens'), 0) AS tokens
      FROM reward_activities a JOIN contractors c ON c.id = a.contractor_id
