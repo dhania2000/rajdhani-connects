@@ -33,7 +33,7 @@ export async function ReportsTab({ report }: { report?: string }) {
         {REPORTS.map((r) => (
           <Link
             key={r.value}
-            href={`/admin/rewards-engine?tab=reports&report=${r.value}`}
+            href={`/admin/rewards-engine/reports?report=${r.value}`}
             aria-current={type === r.value ? 'page' : undefined}
             className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', type === r.value ? 'bg-brand text-white' : 'text-ink-muted hover:bg-app-bg hover:text-ink')}
           >

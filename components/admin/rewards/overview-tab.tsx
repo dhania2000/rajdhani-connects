@@ -4,11 +4,11 @@ import { getDashboardMetrics, getRewardsOverview, listRecentTransactions, listRe
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, StatCard, StatusBadge, Td } from '@/components/admin/ui'
 
 const QUICK = [
-  { href: '/admin/rewards-engine?tab=rules', label: 'Create reward rule' },
-  { href: '/admin/rewards-engine?tab=activities', label: 'Record activity' },
-  { href: '/admin/rewards-engine?tab=points', label: 'Assign points / tokens' },
-  { href: '/admin/rewards-engine?tab=gifts', label: 'Add gift' },
-  { href: '/admin/rewards-engine?tab=redemptions&status=requested', label: 'Review claims' },
+  { href: '/admin/rewards-engine/rules', label: 'Create reward rule' },
+  { href: '/admin/rewards-engine/activities', label: 'Record activity' },
+  { href: '/admin/rewards-engine/points-tokens', label: 'Assign points / tokens' },
+  { href: '/admin/rewards-engine/gifts', label: 'Add gift' },
+  { href: '/admin/rewards-engine/redemptions?status=requested', label: 'Review claims' },
 ]
 
 export async function OverviewTab() {

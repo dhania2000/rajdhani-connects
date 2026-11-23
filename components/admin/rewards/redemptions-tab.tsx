@@ -18,7 +18,7 @@ export async function RedemptionsTab({ status = '' }: { status?: string }) {
         {FILTERS.map((f) => (
           <Link
             key={f}
-            href={`/admin/rewards-engine?tab=redemptions${f ? `&status=${f}` : ''}`}
+            href={`/admin/rewards-engine/redemptions${f ? `?status=${f}` : ''}`}
             aria-current={status === f ? 'page' : undefined}
             className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', status === f ? 'bg-brand text-white' : 'text-ink-muted hover:bg-app-bg hover:text-ink')}
           >

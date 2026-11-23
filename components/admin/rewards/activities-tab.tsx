@@ -54,7 +54,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
           {FILTERS.map((f) => (
             <Link
               key={f.value}
-              href={`/admin/rewards-engine?tab=activities${f.value ? `&status=${f.value}` : ''}`}
+              href={`/admin/rewards-engine/activities${f.value ? `?status=${f.value}` : ''}`}
               aria-current={status === f.value ? 'page' : undefined}
               className={cn('rounded-lg px-3 py-1.5 text-sm font-medium', status === f.value ? 'bg-brand text-white' : 'text-ink-muted hover:bg-app-bg hover:text-ink')}
             >
@@ -62,8 +62,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
             </Link>
           ))}
         </nav>
-        <form className="flex gap-2" action="/admin/rewards-engine">
-          <input type="hidden" name="tab" value="activities" />
+        <form className="flex gap-2" action="/admin/rewards-engine/activities">
           {status ? <input type="hidden" name="status" value={status} /> : null}
           <label htmlFor="activity-q" className="sr-only">
             Search activities
