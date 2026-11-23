@@ -57,7 +57,26 @@ async function runMigrations() {
       "ALTER TABLE contractors MODIFY account_status ENUM('pending_approval','active','suspended','inactive','archived') NOT NULL DEFAULT 'pending_approval'",
     )
   }
+  await getPool().query(ACCOUNT_ENTRIES_DDL)
 }
+
+// Kept in sync with database/schema.sql so existing databases gain the table without a manual import.
+const ACCOUNT_ENTRIES_DDL = `CREATE TABLE IF NOT EXISTS contractor_account_entries (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  entry_type          ENUM('opening','credit','debit','udhar','advance') NOT NULL,
+  amount              DECIMAL(14,2)   NOT NULL,
+  description         VARCHAR(200)    NOT NULL,
+  reference           VARCHAR(80)     NULL,
+  entry_date          DATE            NOT NULL,
+  created_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_account_entries_contractor (contractor_id, entry_date),
+  CONSTRAINT fk_account_entries_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_account_entries_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 // Creates every table on first use against an empty database, so the store never has to import SQL by hand.
 export function ensureSchema() {

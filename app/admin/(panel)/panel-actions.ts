@@ -46,6 +46,16 @@ import {
   type RedemptionStatus,
 } from '@/lib/server/admin-rewards'
 import {
+  accountEntrySchema,
+  categorySchema,
+  productSchema,
+  saveAccountEntry,
+  saveCategory,
+  saveProduct,
+  saveTarget,
+  targetSchema,
+} from '@/lib/server/catalogue-admin'
+import {
   DELETABLE_ENTITIES,
   deleteRecord,
   notificationEditSchema,
@@ -303,4 +313,50 @@ export async function saveAppContentAction(_: AdminActionState, fd: FormData): P
   })
   if ('error' in parsed) return { error: parsed.error }
   return done(await saveAppContent(admin, parsed.data), 'Contractor app content saved.')
+}
+
+// Product catalogue -----------------------------------------------------------
+
+export async function saveCategoryAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const parsed = parse(categorySchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const upload = await uploadImage(fd, 'imageFile', admin.adminId)
+  if (upload && 'error' in upload) return { error: upload.error }
+  if (upload) parsed.data.imageUrl = upload.url
+  const id = idOf(fd)
+  return done(await saveCategory(admin, id, parsed.data), id ? 'Category updated.' : 'Category added.')
+}
+
+export async function saveProductAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const parsed = parse(productSchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const upload = await uploadImage(fd, 'imageFile', admin.adminId)
+  if (upload && 'error' in upload) return { error: upload.error }
+  if (upload) parsed.data.imageUrl = upload.url
+  const id = idOf(fd)
+  return done(await saveProduct(admin, id, parsed.data), id ? 'Product updated.' : 'Product added.')
+}
+
+// Contractor targets & account ledger ------------------------------------------
+
+export async function saveTargetAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const contractorId = idOf(fd, 'contractorId')
+  if (!contractorId) return { error: 'Contractor not found.' }
+  const parsed = parse(targetSchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const id = idOf(fd)
+  return done(await saveTarget(admin, contractorId, id, parsed.data), id ? 'Target updated.' : 'Target added.')
+}
+
+export async function saveAccountEntryAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const contractorId = idOf(fd, 'contractorId')
+  if (!contractorId) return { error: 'Contractor not found.' }
+  const parsed = parse(accountEntrySchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const id = idOf(fd)
+  return done(await saveAccountEntry(admin, contractorId, id, parsed.data), id ? 'Entry updated.' : 'Entry added.')
 }

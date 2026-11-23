@@ -515,10 +515,12 @@ export async function listSentNotifications() {
 // Contractor app content configuration
 // ---------------------------------------------------------------------------
 
-export const QUICK_ACTION_KEYS = ['catalogue', 'rewards', 'sales', 'offers', 'ledger'] as const
+export const QUICK_ACTION_KEYS = ['sales', 'rewards', 'claim', 'catalogue', 'offers', 'ledger'] as const
+export type QuickActionKey = (typeof QUICK_ACTION_KEYS)[number]
 
 export const appContentSchema = z.object({
   brandName: z.string().trim().min(2).max(80),
+  storePhone: z.string().trim().max(20).regex(/^[+\d\s-]*$/, 'Store phone can contain digits, spaces, + and - only.').default(''),
   welcomeText: z.string().trim().max(200),
   rewardCardTitle: z.string().trim().min(2).max(60),
   redeemButtonText: z.string().trim().min(2).max(40),
@@ -536,34 +538,46 @@ export type AppContent = z.infer<typeof appContentSchema>
 
 export const DEFAULT_APP_CONTENT: AppContent = {
   brandName: 'Rajdhani Connects',
-  welcomeText: 'Welcome back',
-  rewardCardTitle: 'Your rewards',
-  redeemButtonText: 'Redeem rewards',
-  pointsLabel: 'Points',
+  storePhone: '',
+  welcomeText: 'Welcome,',
+  rewardCardTitle: 'Your Rewards',
+  redeemButtonText: 'Redeem Now',
+  pointsLabel: 'pts',
   tokensLabel: 'Tokens',
   supportMessage: 'For password resets or account changes, contact Rajdhani Connects.',
-  ledgerComingSoon: true,
+  ledgerComingSoon: false,
   ledgerMessage: 'Your account ledger will be available here soon.',
   activityApprovalMode: 'manual',
   quickActions: [
-    { key: 'catalogue', title: 'Product catalogue', subtitle: 'Browse tiles & sanitary', visible: true },
-    { key: 'rewards', title: 'Rewards', subtitle: 'Gifts & claims', visible: true },
-    { key: 'sales', title: 'Referred sales', subtitle: 'Track your sales', visible: true },
-    { key: 'offers', title: 'Offers', subtitle: 'Schemes & targets', visible: true },
-    { key: 'ledger', title: 'Ledger', subtitle: 'Account statement', visible: true },
+    { key: 'sales', title: 'My Sales', subtitle: '(Referrals)', visible: true },
+    { key: 'rewards', title: 'Earned Rewards', subtitle: '', visible: true },
+    { key: 'claim', title: 'Claim Reward', subtitle: '', visible: true },
+    { key: 'catalogue', title: 'Product Catalogue', subtitle: '', visible: true },
+    { key: 'offers', title: 'Offers & Schemes', subtitle: '', visible: true },
+    { key: 'ledger', title: 'My Ledger', subtitle: '(Udhar/Advance)', visible: false },
   ],
 }
 
 export async function getAppContent(): Promise<AppContent> {
-  const row = await queryOne<{ config_value: string }>("SELECT config_value FROM contractor_app_configuration WHERE config_key = 'app_content'")
-  if (!row) return DEFAULT_APP_CONTENT
+  const [row, legacyPhone] = await Promise.all([
+    queryOne<{ config_value: string }>("SELECT config_value FROM contractor_app_configuration WHERE config_key = 'app_content'"),
+    queryOne<{ config_value: string }>("SELECT config_value FROM contractor_app_configuration WHERE config_key = 'store_phone'"),
+  ])
+  const defaults = { ...DEFAULT_APP_CONTENT, storePhone: legacyPhone?.config_value ?? '' }
+  if (!row) return defaults
   try {
-    const parsed = appContentSchema.partial().parse(JSON.parse(row.config_value))
-    const merged = { ...DEFAULT_APP_CONTENT, ...parsed }
-    merged.quickActions = DEFAULT_APP_CONTENT.quickActions.map((d) => parsed.quickActions?.find((q) => q.key === d.key) ?? d)
+    const raw = JSON.parse(row.config_value) as Record<string, unknown>
+    const parsed = appContentSchema.partial().safeParse(raw)
+    const valid = parsed.success ? parsed.data : {}
+    const savedActions = Array.isArray(raw.quickActions) ? (raw.quickActions as AppContent['quickActions']) : []
+    const merged: AppContent = { ...defaults, ...valid, storePhone: valid.storePhone || defaults.storePhone }
+    merged.quickActions = DEFAULT_APP_CONTENT.quickActions.map((d) => {
+      const saved = savedActions.find((q) => q?.key === d.key)
+      return saved && typeof saved.title === 'string' ? { ...d, ...saved } : d
+    })
     return merged
   } catch {
-    return DEFAULT_APP_CONTENT
+    return defaults
   }
 }
 

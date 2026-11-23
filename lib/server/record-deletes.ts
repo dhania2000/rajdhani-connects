@@ -3,7 +3,18 @@ import { execute, queryOne } from './db'
 import { writeAudit } from './audit'
 import type { AdminSession } from './auth'
 
-export const DELETABLE_ENTITIES = ['rule', 'activity', 'gift', 'redemption', 'offer', 'notification'] as const
+export const DELETABLE_ENTITIES = [
+  'rule',
+  'activity',
+  'gift',
+  'redemption',
+  'offer',
+  'notification',
+  'product',
+  'product_category',
+  'target',
+  'account_entry',
+] as const
 export type DeletableEntity = (typeof DELETABLE_ENTITIES)[number]
 
 type Result = { ok: true } | { ok: false; error: string }
@@ -55,6 +66,24 @@ const CONFIG: Record<
     label: 'Notification',
     nameColumn: 'title',
     inUse: 'This notification is still referenced and cannot be deleted.',
+  },
+  product: { table: 'products', label: 'Product', nameColumn: 'name', inUse: 'This product is still referenced and cannot be deleted.' },
+  product_category: {
+    table: 'product_categories',
+    label: 'Category',
+    nameColumn: 'name',
+    guard: async (id) => {
+      const r = await queryOne<{ n: number }>('SELECT COUNT(*) AS n FROM products WHERE category_id = ?', [id])
+      return Number(r?.n ?? 0) > 0 ? 'Move or delete the products in this category first.' : null
+    },
+    inUse: 'This category still has products.',
+  },
+  target: { table: 'contractor_targets', label: 'Target', nameColumn: 'title', inUse: 'This target cannot be deleted.' },
+  account_entry: {
+    table: 'contractor_account_entries',
+    label: 'Ledger entry',
+    nameColumn: 'description',
+    inUse: 'This ledger entry cannot be deleted.',
   },
 }
 

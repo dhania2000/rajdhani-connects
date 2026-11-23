@@ -17,6 +17,8 @@ import {
   setNotificationPreference,
   type ClaimResult,
 } from '@/lib/server/contractor-app'
+import { setContractorPhoto } from '@/lib/server/contractors'
+import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import type { NotificationPreferences } from '@/lib/types'
 
 export interface FormState {
@@ -68,6 +70,25 @@ export async function setPreferenceAction(key: keyof NotificationPreferences, va
   const session = await requireContractor()
   if (!preferenceKeys.includes(key) || typeof value !== 'boolean') return { ok: false }
   await setNotificationPreference(session.contractorId, key, value)
+  return { ok: true }
+}
+
+export async function updateProfilePhotoAction(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const session = await requireContractor()
+  const actor = { type: 'contractor' as const, id: session.contractorId }
+  if (formData.get('remove') === '1') {
+    const removed = await setContractorPhoto(actor, session.contractorId, null)
+    if (!removed.ok) return { ok: false, error: removed.error }
+    revalidatePath('/contractor', 'layout')
+    return { ok: true }
+  }
+  const file = formData.get('photo')
+  if (!isUploadedFile(file)) return { ok: false, error: 'Choose a photo to upload.' }
+  const upload = await saveImageUpload(file, null)
+  if (!upload.ok) return { ok: false, error: upload.error }
+  const result = await setContractorPhoto(actor, session.contractorId, upload.url)
+  if (!result.ok) return { ok: false, error: result.error }
+  revalidatePath('/contractor', 'layout')
   return { ok: true }
 }
 
