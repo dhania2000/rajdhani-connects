@@ -3,7 +3,7 @@ import { cookies, headers } from 'next/headers'
 import { redirect } from 'next/navigation'
 import { execute, isDbConfigured, queryOne, withTransaction } from './db'
 import { writeAudit } from './audit'
-import { burnPasswordCheck, generateToken, hashPassword, safeEqual, sha256, verifyPassword } from './passwords'
+import { burnPasswordCheck, generateToken, hashPassword, sha256, verifyPassword } from './passwords'
 
 export type AccountType = 'admin' | 'contractor'
 
@@ -189,34 +189,51 @@ export type LoginResult = { ok: true; mustChangePassword?: boolean } | { ok: fal
 const GENERIC_ERROR = 'Invalid credentials. Please check and try again.'
 const THROTTLED_ERROR = 'Too many attempts. Please wait a few minutes and try again.'
 
-async function bootstrapSuperAdmin(email: string, password: string) {
-  const envEmail = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase()
-  const envPassword = process.env.SUPER_ADMIN_PASSWORD
-  if (!envEmail || !envPassword || envPassword.length < 10) return null
-  if (email !== envEmail || !safeEqual(password, envPassword)) return null
+const MIN_BOOTSTRAP_PASSWORD = 8
+
+// When the admins table is empty, the first credentials submitted become the super admin.
+async function bootstrapSuperAdmin(identifier: string, password: string): Promise<LoginResult | null> {
   const existing = await queryOne<{ n: number }>('SELECT COUNT(*) AS n FROM admins')
   if ((existing?.n ?? 0) > 0) return null
+
+  if (identifier.length < 3) {
+    return { ok: false, error: 'First-time setup: enter an email or username of at least 3 characters.' }
+  }
+  if (password.length < MIN_BOOTSTRAP_PASSWORD) {
+    return {
+      ok: false,
+      error: `First-time setup: choose a password of at least ${MIN_BOOTSTRAP_PASSWORD} characters for the super admin.`,
+    }
+  }
+
+  const username = identifier.includes('@') ? null : identifier.slice(0, 60)
   const hash = await hashPassword(password)
+  // NOT EXISTS guard keeps two simultaneous first logins from both creating a super admin.
   const result = await execute(
-    `INSERT INTO admins (name, email, password_hash, role, status) VALUES ('Super Admin', ?, ?, 'super_admin', 'active')`,
-    [envEmail, hash],
+    `INSERT INTO admins (name, email, username, password_hash, role, status)
+     SELECT 'Super Admin', ?, ?, ?, 'super_admin', 'active' FROM DUAL
+     WHERE NOT EXISTS (SELECT 1 FROM (SELECT id FROM admins LIMIT 1) AS existing_admin)`,
+    [identifier.slice(0, 190), username, hash],
   )
+  if (!result.affectedRows) return null
+
   await writeAudit({
     actorType: 'system',
     actorId: null,
     action: 'admin.bootstrap',
     entityType: 'admin',
     entityId: result.insertId,
-    summary: `Super admin ${envEmail} created from environment`,
+    summary: `Super admin ${identifier} created on first login`,
   })
-  return result.insertId
+  return null
 }
 
 export async function loginAdmin(rawEmail: string, password: string): Promise<LoginResult> {
   const email = rawEmail.trim().toLowerCase()
   if (await ipIsThrottled()) return { ok: false, error: THROTTLED_ERROR }
 
-  await bootstrapSuperAdmin(email, password)
+  const bootstrapError = await bootstrapSuperAdmin(email, password)
+  if (bootstrapError) return bootstrapError
 
   const admin = await queryOne<{
     id: number

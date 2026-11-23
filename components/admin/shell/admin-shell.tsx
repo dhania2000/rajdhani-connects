@@ -9,8 +9,8 @@ import { cn } from '@/lib/utils'
 
 const NAV = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { href: '/admin/contractors', label: 'Contractor Management', icon: Users },
   { href: '/admin/rewards-engine', label: 'Rewards Engine', icon: Gift },
+  { href: '/admin/contractors', label: 'Contractor', icon: Users },
 ]
 
 function NavLinks({ onNavigate }: { onNavigate?: () => void }) {
