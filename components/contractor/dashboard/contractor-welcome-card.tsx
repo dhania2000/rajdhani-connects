@@ -5,7 +5,7 @@ import { ContractorAvatar } from '@/components/contractor/shared/contractor-avat
 import { VerifiedPartnerBadge } from '@/components/contractor/shared/verified-partner-badge'
 
 export function ContractorWelcomeCard() {
-  const { profile } = useContractor()
+  const { profile, content } = useContractor()
 
   return (
     <section aria-label="Contractor" className="flex items-center gap-3.5 bg-white px-4 py-3.5">
@@ -18,7 +18,7 @@ export function ContractorWelcomeCard() {
         textClassName="text-lg"
       />
       <div className="min-w-0">
-        <p className="text-[14px] leading-tight text-ink">Welcome,</p>
+        {content.welcomeText && <p className="text-[14px] leading-tight text-ink">{content.welcomeText}</p>}
         <p className="truncate text-[20px] leading-snug font-bold text-ink">{profile.name}</p>
         {profile.verified && (
           <div className="mt-1">

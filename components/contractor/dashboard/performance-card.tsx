@@ -1,20 +1,35 @@
 'use client'
 
 import { useState } from 'react'
+import useSWR from 'swr'
 import { Gift, ShoppingCart } from 'lucide-react'
+import { getPerformanceAction } from '@/app/contractor/actions'
 import { formatINR } from '@/lib/format'
-import { getCustomRangePerformance, performanceByPeriod, performancePeriodOptions } from '@/lib/mock-data'
 import type { PerformancePeriod } from '@/lib/types'
 import { FilterDropdown } from '@/components/contractor/shared/filter-dropdown'
 
-const today = '2026-11-16'
+const periodOptions: { value: PerformancePeriod; label: string }[] = [
+  { value: 'today', label: 'Today' },
+  { value: 'week', label: 'This Week' },
+  { value: 'month', label: 'This Month' },
+  { value: 'last-month', label: 'Last Month' },
+  { value: 'custom', label: 'Custom Range' },
+]
+
+const isoDate = (d: Date) => d.toISOString().slice(0, 10)
 
 export function PerformanceCard() {
+  const today = isoDate(new Date())
   const [period, setPeriod] = useState<PerformancePeriod>('month')
-  const [from, setFrom] = useState('2026-11-01')
+  const [from, setFrom] = useState(() => `${today.slice(0, 8)}01`)
   const [to, setTo] = useState(today)
 
-  const metrics = period === 'custom' ? getCustomRangePerformance(from, to) : performanceByPeriod[period]
+  const { data, isLoading } = useSWR(
+    ['contractor-performance', period, period === 'custom' ? from : '', period === 'custom' ? to : ''],
+    ([, p, f, t]) => getPerformanceAction(p, f || undefined, t || undefined),
+    { keepPreviousData: true, revalidateOnFocus: true },
+  )
+  const metrics = data ?? { salesBrought: 0, rewardsEarned: 0 }
 
   return (
     <section aria-labelledby="performance-title">
@@ -22,7 +37,7 @@ export function PerformanceCard() {
         <h2 id="performance-title" className="text-[16px] font-bold text-ink">
           My Performance
         </h2>
-        <FilterDropdown label="Performance period" value={period} options={performancePeriodOptions} onChange={setPeriod} className="w-[132px]" />
+        <FilterDropdown label="Performance period" value={period} options={periodOptions} onChange={setPeriod} className="w-[132px]" />
       </div>
 
       {period === 'custom' && (
@@ -51,7 +66,11 @@ export function PerformanceCard() {
         </div>
       )}
 
-      <div className="grid grid-cols-2 divide-x divide-border rounded-xl bg-white py-3.5 shadow-[0_1px_4px_rgba(28,35,64,0.08)]" aria-live="polite">
+      <div
+        className="grid grid-cols-2 divide-x divide-border rounded-xl bg-white py-3.5 shadow-[0_1px_4px_rgba(28,35,64,0.08)]"
+        aria-live="polite"
+        aria-busy={isLoading}
+      >
         <Metric icon={<ShoppingCart className="size-[18px]" />} tone="bg-success/10 text-success" value={formatINR(metrics.salesBrought)} label="Sales Brought" />
         <Metric icon={<Gift className="size-[18px]" />} tone="bg-lavender text-brand" value={formatINR(metrics.rewardsEarned)} label="Rewards Earned" />
       </div>

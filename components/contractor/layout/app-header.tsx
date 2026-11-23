@@ -2,19 +2,18 @@
 
 import Link from 'next/link'
 import { Bell } from 'lucide-react'
-import { BRAND_NAME } from '@/lib/mock-data'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { BrandLogo } from './brand-logo'
 
 export function AppHeader() {
-  const { unreadCount } = useContractor()
+  const { unreadCount, content } = useContractor()
 
   return (
     <header className="sticky top-0 z-30 bg-gradient-to-b from-navy to-navy-2 pt-[env(safe-area-inset-top)]">
       <div className="flex h-14 items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-2.5">
           <BrandLogo className="size-8 shrink-0" />
-          <h1 className="truncate text-[17px] font-semibold tracking-tight text-white">{BRAND_NAME}</h1>
+          <h1 className="truncate text-[17px] font-semibold tracking-tight text-white">{content.brandName}</h1>
         </div>
         <Link
           href="/contractor/notifications"

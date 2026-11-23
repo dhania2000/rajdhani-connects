@@ -4,8 +4,8 @@ export function formatINR(value: number) {
   return `₹ ${inr.format(value)}`
 }
 
-export function formatPoints(value: number) {
-  return `${inr.format(value)} pts`
+export function formatPoints(value: number, label = 'pts') {
+  return `${inr.format(value)} ${label}`
 }
 
 export function formatNumber(value: number) {

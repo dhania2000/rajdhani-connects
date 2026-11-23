@@ -3,23 +3,31 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { Sparkles } from 'lucide-react'
-import { productCategories, products } from '@/lib/mock-data'
-import type { ProductCategoryId } from '@/lib/types'
+import type { Product, ProductCategory, ProductCategoryId } from '@/lib/types'
+import { EmptyState } from '@/components/contractor/shared/empty-state'
 import { SectionTitle } from '@/components/contractor/shared/section-title'
 import { cn } from '@/lib/utils'
 
-export function ProductCatalogueView() {
-  const [category, setCategory] = useState<ProductCategoryId>('tiles')
-  const active = productCategories.find((c) => c.id === category)!
-  const list = products.filter((p) => p.category === category)
+export function ProductCatalogueView({ categories, products }: { categories: ProductCategory[]; products: Product[] }) {
+  const [category, setCategory] = useState<ProductCategoryId>(categories[0]?.id ?? '')
+  const active = categories.find((c) => c.id === category) ?? categories[0]
+  const list = products.filter((p) => p.category === active?.id)
+
+  if (!active) {
+    return (
+      <main className="p-4">
+        <EmptyState title="Catalogue coming soon" description="The store has not added any products yet." />
+      </main>
+    )
+  }
 
   return (
     <main className="flex flex-col gap-4 p-4">
       <section>
         <SectionTitle>Categories</SectionTitle>
         <div role="radiogroup" aria-label="Product category" className="grid grid-cols-3 gap-2.5">
-          {productCategories.map((c) => {
-            const selected = c.id === category
+          {categories.map((c) => {
+            const selected = c.id === active.id
             return (
               <button
                 key={c.id}
@@ -44,11 +52,12 @@ export function ProductCatalogueView() {
 
       <section aria-live="polite">
         <SectionTitle>{active.name}</SectionTitle>
+        {list.length === 0 && <EmptyState title="No products in this category yet" />}
         <ul className="flex flex-col gap-2.5">
           {list.map((p) => (
             <li key={p.id} className="flex gap-3 rounded-xl bg-white p-3 shadow-[0_1px_3px_rgba(28,35,64,0.08)]">
               <span className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-app-bg">
-                <Image src={active.image} alt={p.name} fill sizes="64px" className="object-cover" />
+                <Image src={p.image ?? active.image} alt={p.name} fill sizes="64px" className="object-cover" />
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink">{p.name}</p>

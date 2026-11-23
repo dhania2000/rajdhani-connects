@@ -3,9 +3,8 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { ChevronRight, Clock, Gift, Trophy, Wallet } from 'lucide-react'
-import { rewardSummary, rewardTransactions } from '@/lib/mock-data'
-import { formatNumber, formatPoints } from '@/lib/format'
-import type { RewardTransaction } from '@/lib/types'
+import { formatNumber } from '@/lib/format'
+import type { RewardSummary, RewardTransaction } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { StatCard } from '@/components/contractor/shared/stat-card'
 import { FilterChips } from '@/components/contractor/shared/filter-chips'
@@ -22,19 +21,18 @@ const options: { value: Filter; label: string }[] = [
   { value: 'redeemed', label: 'Redeemed' },
 ]
 
-export function EarnedRewardsView() {
-  const { availablePoints, claims } = useContractor()
+export function EarnedRewardsView({ summary, transactions }: { summary: RewardSummary; transactions: RewardTransaction[] }) {
+  const { availablePoints, claims, formatPts } = useContractor()
   const [filter, setFilter] = useState<Filter>('all')
-  const redeemed = claims.reduce((acc, c) => acc + c.points, 0)
-  const items = rewardTransactions.filter((t) => filter === 'all' || t.status === filter)
+  const items = transactions.filter((t) => filter === 'all' || t.status === filter)
 
   return (
     <main className="flex flex-col gap-4 p-4">
       <div className="grid grid-cols-2 gap-2.5">
-        <StatCard label="Total Earned" value={formatPoints(rewardSummary.totalEarned)} icon={Trophy} tone="brand" />
-        <StatCard label="Available Balance" value={formatPoints(availablePoints)} icon={Wallet} tone="success" />
-        <StatCard label="Pending Rewards" value={formatPoints(rewardSummary.pending)} icon={Clock} tone="warn" />
-        <StatCard label="Redeemed" value={formatPoints(redeemed)} icon={Gift} tone="info" />
+        <StatCard label="Total Earned" value={formatPts(summary.totalEarned)} icon={Trophy} tone="brand" />
+        <StatCard label="Available Balance" value={formatPts(availablePoints)} icon={Wallet} tone="success" />
+        <StatCard label="Pending Rewards" value={formatPts(summary.pending)} icon={Clock} tone="warn" />
+        <StatCard label="Redeemed" value={formatPts(summary.redeemed)} icon={Gift} tone="info" />
       </div>
 
       <div className="grid grid-cols-2 gap-2.5">

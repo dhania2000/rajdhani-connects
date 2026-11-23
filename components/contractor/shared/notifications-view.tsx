@@ -1,10 +1,10 @@
 'use client'
 
 import { Bell, Gift, ShoppingCart, Tag } from 'lucide-react'
-import { notifications } from '@/lib/mock-data'
 import type { AppNotification } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { cn } from '@/lib/utils'
+import { EmptyState } from './empty-state'
 
 const icons: Record<AppNotification['kind'], { icon: typeof Bell; className: string }> = {
   reward: { icon: Gift, className: 'bg-lavender text-brand' },
@@ -13,7 +13,7 @@ const icons: Record<AppNotification['kind'], { icon: typeof Bell; className: str
   system: { icon: Bell, className: 'bg-info/10 text-info' },
 }
 
-export function NotificationsView() {
+export function NotificationsView({ notifications, readIds }: { notifications: AppNotification[]; readIds: string[] }) {
   const { unreadCount, markAllNotificationsRead } = useContractor()
 
   return (
@@ -29,10 +29,11 @@ export function NotificationsView() {
           Mark all as read
         </button>
       </div>
+      {notifications.length === 0 && <EmptyState title="No notifications yet" description="Updates from the store will appear here." />}
       <ul className="flex flex-col gap-2.5">
-        {notifications.map((n, index) => {
-          const { icon: Icon, className } = icons[n.kind]
-          const unread = index < unreadCount
+        {notifications.map((n) => {
+          const { icon: Icon, className } = icons[n.kind] ?? icons.system
+          const unread = unreadCount > 0 && !readIds.includes(n.id)
           return (
             <li key={n.id} className={cn('flex gap-3 rounded-xl bg-white p-3.5 shadow-[0_1px_3px_rgba(28,35,64,0.08)]', unread && 'ring-1 ring-brand/25')}>
               <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', className)} aria-hidden="true">

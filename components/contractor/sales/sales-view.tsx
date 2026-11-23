@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import { CheckCircle2, Clock, Search, TrendingUp, XCircle } from 'lucide-react'
-import { salesRecords } from '@/lib/mock-data'
-import { formatDate, formatINR, formatNumber } from '@/lib/format'
+import { formatDate, formatINR } from '@/lib/format'
+import { useContractor } from '@/components/contractor/contractor-store'
 import type { ApprovalStatus, SaleRecord } from '@/lib/types'
 import { StatCard } from '@/components/contractor/shared/stat-card'
 import { FilterChips } from '@/components/contractor/shared/filter-chips'
@@ -23,7 +23,8 @@ const statusOptions: { value: StatusFilter; label: string }[] = [
 const sumBy = (records: SaleRecord[], status?: ApprovalStatus) =>
   records.filter((r) => !status || r.status === status).reduce((acc, r) => acc + r.amount, 0)
 
-export function SalesView({ records = salesRecords }: { records?: SaleRecord[] }) {
+export function SalesView({ records }: { records: SaleRecord[] }) {
+  const { formatPts } = useContractor()
   const [status, setStatus] = useState<StatusFilter>('all')
   const [query, setQuery] = useState('')
 
@@ -65,7 +66,10 @@ export function SalesView({ records = salesRecords }: { records?: SaleRecord[] }
       <section>
         <SectionTitle>Sales History</SectionTitle>
         {filtered.length === 0 ? (
-          <EmptyState title="No sales found" description="Try changing the search or status filter." />
+          <EmptyState
+            title={records.length === 0 ? 'No sales yet' : 'No sales found'}
+            description={records.length === 0 ? 'Sales recorded by the store will appear here.' : 'Try changing the search or status filter.'}
+          />
         ) : (
           <ul className="flex flex-col gap-2.5">
             {filtered.map((r) => (
@@ -83,7 +87,7 @@ export function SalesView({ records = salesRecords }: { records?: SaleRecord[] }
                 <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                   <p className="text-[15px] font-bold text-ink">{formatINR(r.amount)}</p>
                   <p className="text-[12px] font-semibold text-brand">
-                    {r.reward > 0 ? `+${formatNumber(r.reward)} pts` : 'No reward'}
+                    {r.reward > 0 ? `+${formatPts(r.reward)}` : 'No reward'}
                   </p>
                 </div>
               </li>
