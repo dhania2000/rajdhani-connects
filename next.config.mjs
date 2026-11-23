@@ -7,6 +7,11 @@ const nextConfig = {
     unoptimized: true,
   },
   serverExternalPackages: ['mysql2', 'bcryptjs'],
+  experimental: {
+    serverActions: {
+      bodySizeLimit: '5mb',
+    },
+  },
   outputFileTracingIncludes: {
     '/**': ['./database/schema.sql'],
   },

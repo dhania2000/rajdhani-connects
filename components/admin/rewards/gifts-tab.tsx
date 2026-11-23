@@ -1,6 +1,7 @@
 import { listGifts, type GiftRow } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
+import { ImageUploadField } from '@/components/admin/image-upload-field'
 import { CheckboxInput, FormGrid, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtNumber, Panel, StatusBadge, Td } from '@/components/admin/ui'
 import { archiveGiftAction, saveGiftAction } from '@/app/admin/(panel)/panel-actions'
@@ -11,7 +12,7 @@ function GiftFields({ g }: { g?: GiftRow }) {
       <FormGrid>
         <TextInput label="Gift name" name="name" required defaultValue={g?.name} />
         <TextInput label="Category" name="category" defaultValue={g?.category ?? ''} placeholder="Tools, Electronics, Vehicle" />
-        <TextInput label="Image URL" name="imageUrl" defaultValue={g?.image_url ?? ''} placeholder="https://... or /images/gift.png" className="sm:col-span-2" />
+        <ImageUploadField label="Gift image" name="imageUrl" fileName="imageFile" defaultValue={g?.image_url} className="sm:col-span-2" />
         <TextInput label="Required points" name="requiredPoints" type="number" min={0} required defaultValue={g?.required_points ?? 0} />
         <TextInput label="Required tokens" name="requiredTokens" type="number" min={0} required defaultValue={g?.required_tokens ?? 0} />
         <TextInput label="Available quantity" name="stock" type="number" min={0} required defaultValue={g?.total_quantity ?? 0} />
