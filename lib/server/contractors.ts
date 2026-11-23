@@ -578,3 +578,54 @@ export async function getContractorDetail(id: number) {
     redemptions,
   }
 }
+
+export const bulkAdjustmentSchema = adjustmentSchema.extend({
+  target: z.enum(['all_active', 'selected']),
+})
+
+export type BulkAdjustmentResult =
+  | { ok: true; applied: number; skipped: { name: string; error: string }[] }
+  | { ok: false; error: string }
+
+/**
+ * Posts the same manual credit/debit to many contractors. Each contractor gets its own ledger
+ * transaction (and notification on credit), so one failure (e.g. a debit larger than a balance)
+ * does not block the rest. Idempotency keys are derived per contractor, so a resubmitted form
+ * never double-posts.
+ */
+export async function bulkAdjustContractorPoints(
+  admin: AdminSession,
+  input: z.infer<typeof bulkAdjustmentSchema>,
+  selectedIds: number[],
+): Promise<BulkAdjustmentResult> {
+  const recipients =
+    input.target === 'all_active'
+      ? await query<{ id: number; name: string }>("SELECT id, name FROM contractors WHERE account_status = 'active' ORDER BY id")
+      : selectedIds.length === 0
+        ? []
+        : await query<{ id: number; name: string }>(
+            `SELECT id, name FROM contractors WHERE account_status IN ('active','pending_approval') AND id IN (${selectedIds.map(() => '?').join(',')}) ORDER BY id`,
+            selectedIds,
+          )
+  if (recipients.length === 0) {
+    return { ok: false, error: input.target === 'all_active' ? 'There are no active contractors.' : 'Select at least one contractor.' }
+  }
+
+  let applied = 0
+  const skipped: { name: string; error: string }[] = []
+  for (const r of recipients) {
+    const result = await adjustContractorPoints(admin, r.id, { ...input, idempotencyKey: `${input.idempotencyKey}:${r.id}` })
+    if (result.ok) applied++
+    else skipped.push({ name: r.name, error: result.error })
+  }
+
+  await writeAudit({
+    actorType: 'admin',
+    actorId: admin.adminId,
+    action: `ledger.bulk_manual_${input.direction}`,
+    entityType: 'contractor',
+    summary: `${input.direction === 'credit' ? '+' : '-'}${input.amount} ${input.currency} to ${applied} contractor(s): ${input.reason}`,
+    metadata: { target: input.target, applied, skipped: skipped.length },
+  })
+  return { ok: true, applied, skipped }
+}

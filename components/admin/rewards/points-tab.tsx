@@ -3,7 +3,8 @@ import { listContractorOptions, listRecentTransactions } from '@/lib/server/admi
 import { ActionForm } from '@/components/admin/action-form'
 import { FormGrid, SelectInput, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, Td } from '@/components/admin/ui'
-import { adjustPointsAction } from '@/app/admin/(panel)/panel-actions'
+import { adjustPointsAction, bulkAdjustPointsAction } from '@/app/admin/(panel)/panel-actions'
+import { ContractorMultiPicker } from './contractor-multi-picker'
 
 export async function PointsTab() {
   const [contractors, txns] = await Promise.all([listContractorOptions(), listRecentTransactions(100)])
@@ -22,6 +23,26 @@ export async function PointsTab() {
               <SelectInput label="Type" name="direction" options={[{ value: 'credit', label: 'Credit (assign)' }, { value: 'debit', label: 'Debit (deduct)' }]} />
               <TextInput label="Amount" name="amount" type="number" min={1} required />
               <TextInput label="Reason" name="reason" required minLength={5} className="sm:col-span-2" />
+            </FormGrid>
+          </ActionForm>
+        )}
+      </Panel>
+
+      <Panel
+        title="Bulk assign or deduct"
+        description="Post the same amount to every active contractor or to the ones you pick. Each contractor gets their own ledger entry and, for credits, an in-app notification."
+      >
+        {contractors.length === 0 ? (
+          <EmptyState title="No contractors" />
+        ) : (
+          <ActionForm action={bulkAdjustPointsAction} submitLabel="Post to all recipients">
+            <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
+            <ContractorMultiPicker contractors={contractors} />
+            <FormGrid>
+              <SelectInput label="Currency" name="currency" options={[{ value: 'points', label: 'Reward points' }, { value: 'tokens', label: 'Reward tokens' }]} />
+              <SelectInput label="Type" name="direction" options={[{ value: 'credit', label: 'Credit (assign)' }, { value: 'debit', label: 'Debit (deduct)' }]} />
+              <TextInput label="Amount per contractor" name="amount" type="number" min={1} required />
+              <TextInput label="Reason" name="reason" required minLength={5} placeholder="e.g. Diwali bonus" />
             </FormGrid>
           </ActionForm>
         )}
