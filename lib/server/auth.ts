@@ -191,11 +191,21 @@ const THROTTLED_ERROR = 'Too many attempts. Please wait a few minutes and try ag
 
 async function bootstrapSuperAdmin(email: string, password: string) {
   const envEmail = process.env.SUPER_ADMIN_EMAIL?.trim().toLowerCase()
-  const envPassword = process.env.SUPER_ADMIN_PASSWORD
-  if (!envEmail || !envPassword || envPassword.length < 10) return null
+  const envPassword = process.env.SUPER_ADMIN_PASSWORD?.trim()
+  if (!envEmail || !envPassword) {
+    console.warn('[auth] Super admin bootstrap skipped: SUPER_ADMIN_EMAIL or SUPER_ADMIN_PASSWORD is not set')
+    return null
+  }
+  if (envPassword.length < 10) {
+    console.warn('[auth] Super admin bootstrap skipped: SUPER_ADMIN_PASSWORD must be at least 10 characters')
+    return null
+  }
   if (email !== envEmail || !safeEqual(password, envPassword)) return null
   const existing = await queryOne<{ n: number }>('SELECT COUNT(*) AS n FROM admins')
-  if ((existing?.n ?? 0) > 0) return null
+  if ((existing?.n ?? 0) > 0) {
+    console.warn('[auth] Super admin bootstrap skipped: an admin account already exists in the admins table')
+    return null
+  }
   const hash = await hashPassword(password)
   const result = await execute(
     `INSERT INTO admins (name, email, password_hash, role, status) VALUES ('Super Admin', ?, ?, 'super_admin', 'active')`,
