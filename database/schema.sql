@@ -543,6 +543,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand         VARCHAR(80)     NULL,
   unit          VARCHAR(60)     NULL,
   scheme_label  VARCHAR(80)     NULL,
+  description   TEXT            NULL,
   image_url     VARCHAR(500)    NULL,
   display_order INT             NOT NULL DEFAULT 0,
   status        ENUM('active','inactive') NOT NULL DEFAULT 'active',

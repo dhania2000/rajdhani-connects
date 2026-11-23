@@ -1,5 +1,8 @@
 import { listRules, RULE_TYPES, type RuleRow } from '@/lib/server/rewards-engine'
 import { listContractorOptions, listGifts } from '@/lib/server/admin-rewards'
+import { listProductOptions } from '@/lib/server/catalogue-admin'
+import type { ProductOption } from '@/lib/server/catalogue-admin'
+import { ProductPicker } from '@/components/admin/product-picker'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
 import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
@@ -18,7 +21,19 @@ function Section({ title, children, open }: { title: string; children: React.Rea
   )
 }
 
-function RuleFields({ r, contractors, gifts, duplicate }: { r?: RuleRow; contractors: Option[]; gifts: Option[]; duplicate?: boolean }) {
+function RuleFields({
+  r,
+  contractors,
+  gifts,
+  products,
+  duplicate,
+}: {
+  r?: RuleRow
+  contractors: Option[]
+  gifts: Option[]
+  products: ProductOption[]
+  duplicate?: boolean
+}) {
   const v = (x: number | string | null | undefined) => (x == null ? '' : String(x))
   return (
     <div className="flex flex-col gap-3">
@@ -29,11 +44,17 @@ function RuleFields({ r, contractors, gifts, duplicate }: { r?: RuleRow; contrac
           <TextArea label="Description" name="description" className="sm:col-span-2" defaultValue={r?.description ?? ''} />
         </FormGrid>
       </Section>
-      <Section title="Conditions">
+      <Section title="Conditions" open={products.length > 0}>
+        <ProductPicker
+          products={products}
+          fill={{ productRef: 'name', productCategory: 'category', brand: 'brand' }}
+          hint="Fills category, brand and product so this rule matches sales of that product. Clear a field to widen the rule."
+          className="mb-4"
+        />
         <FormGrid>
           <TextInput label="Product category" name="productCategory" defaultValue={r?.product_category ?? ''} />
           <TextInput label="Brand" name="brand" defaultValue={r?.brand ?? ''} />
-          <TextInput label="Product reference" name="productRef" defaultValue={r?.product_ref ?? ''} />
+          <TextInput label="Product name" name="productRef" defaultValue={r?.product_ref ?? ''} />
           <SelectInput label="Eligible contractor" name="contractorId" defaultValue={v(r?.contractor_id)} options={[{ value: '', label: 'All contractors' }, ...contractors]} />
           <TextInput label="Minimum quantity" name="minQuantity" type="number" min={0} step="any" defaultValue={v(r?.min_quantity)} />
           <TextInput label="Minimum amount (Rs.)" name="minAmount" type="number" min={0} step="any" defaultValue={v(r?.min_amount)} />
@@ -85,7 +106,7 @@ function describe(r: RuleRow) {
 }
 
 export async function RulesTab() {
-  const [rules, contractors, gifts] = await Promise.all([listRules(), listContractorOptions(), listGifts()])
+  const [rules, contractors, gifts, products] = await Promise.all([listRules(), listContractorOptions(), listGifts(), listProductOptions()])
   const cOpts = contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.contractor_code})` }))
   const gOpts = gifts.map((g) => ({ value: g.id, label: g.name }))
 
@@ -96,7 +117,7 @@ export async function RulesTab() {
       actions={
         <FormDialog triggerLabel="Create rule" title="Create reward rule">
           <ActionForm action={saveRuleAction} submitLabel="Save rule">
-            <RuleFields contractors={cOpts} gifts={gOpts} />
+            <RuleFields contractors={cOpts} gifts={gOpts} products={products} />
           </ActionForm>
         </FormDialog>
       }
@@ -135,12 +156,12 @@ export async function RulesTab() {
                   <FormDialog triggerLabel="Edit" title={`Edit ${r.name}`} variant="edit">
                     <ActionForm action={saveRuleAction} submitLabel="Save new version">
                       <input type="hidden" name="id" value={r.id} />
-                      <RuleFields r={r} contractors={cOpts} gifts={gOpts} />
+                      <RuleFields r={r} contractors={cOpts} gifts={gOpts} products={products} />
                     </ActionForm>
                   </FormDialog>
                   <FormDialog triggerLabel="Duplicate" title={`Duplicate ${r.name}`} variant="edit">
                     <ActionForm action={saveRuleAction} submitLabel="Create copy">
-                      <RuleFields r={r} contractors={cOpts} gifts={gOpts} duplicate />
+                      <RuleFields r={r} contractors={cOpts} gifts={gOpts} products={products} duplicate />
                     </ActionForm>
                   </FormDialog>
                   {(r.status === 'active' ? ['inactive', 'archived'] : ['active', 'archived']).map((s) => (

@@ -65,6 +65,13 @@ async function runMigrations() {
   if (manualPoints.length === 0) {
     await getPool().query('ALTER TABLE reward_activities ADD COLUMN manual_points BIGINT UNSIGNED NULL AFTER eligible_amount')
   }
+  // Product description, managed in the admin Product Catalogue and shown in the contractor app.
+  const [productDescription] = await getPool().query<RowDataPacket[]>(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'products' AND column_name = 'description'",
+  )
+  if (productDescription.length === 0) {
+    await getPool().query('ALTER TABLE products ADD COLUMN description TEXT NULL AFTER scheme_label')
+  }
 }
 
 // Kept in sync with database/schema.sql so existing databases gain the table without a manual import.

@@ -119,7 +119,7 @@ export function DeleteRecordButton({
   name,
   label,
 }: {
-  entity: 'rule' | 'activity' | 'gift' | 'redemption' | 'offer' | 'notification' | 'target' | 'account_entry'
+  entity: 'rule' | 'activity' | 'gift' | 'redemption' | 'offer' | 'notification' | 'target' | 'account_entry' | 'product' | 'product_category'
   id: number
   name: string
   label: string

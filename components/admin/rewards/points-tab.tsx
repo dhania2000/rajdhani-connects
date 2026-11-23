@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { listContractorOptions, listRecentTransactions } from '@/lib/server/admin-rewards'
+import { listProductOptions } from '@/lib/server/catalogue-admin'
+import { ProductPicker } from '@/components/admin/product-picker'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormGrid, SelectInput, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, Td } from '@/components/admin/ui'
@@ -7,7 +9,7 @@ import { adjustPointsAction, bulkAdjustPointsAction } from '@/app/admin/(panel)/
 import { ContractorMultiPicker } from './contractor-multi-picker'
 
 export async function PointsTab() {
-  const [contractors, txns] = await Promise.all([listContractorOptions(), listRecentTransactions(100)])
+  const [contractors, txns, products] = await Promise.all([listContractorOptions(), listRecentTransactions(100), listProductOptions()])
 
   return (
     <>
@@ -17,6 +19,7 @@ export async function PointsTab() {
         ) : (
           <ActionForm action={adjustPointsAction} submitLabel="Post adjustment">
             <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
+            <ProductPicker products={products} fill={{ reason: 'label' }} hint="Optional: puts the product name in the reason." />
             <FormGrid>
               <SelectInput label="Contractor" name="id" required options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.contractor_code})` }))} />
               <SelectInput label="Currency" name="currency" options={[{ value: 'points', label: 'Reward points' }, { value: 'tokens', label: 'Reward tokens' }]} />
@@ -38,6 +41,7 @@ export async function PointsTab() {
           <ActionForm action={bulkAdjustPointsAction} submitLabel="Post to all recipients">
             <input type="hidden" name="idempotencyKey" value={crypto.randomUUID()} />
             <ContractorMultiPicker contractors={contractors} />
+            <ProductPicker products={products} fill={{ reason: 'label' }} hint="Optional: puts the product name in the reason." />
             <FormGrid>
               <SelectInput label="Currency" name="currency" options={[{ value: 'points', label: 'Reward points' }, { value: 'tokens', label: 'Reward tokens' }]} />
               <SelectInput label="Type" name="direction" options={[{ value: 'credit', label: 'Credit (assign)' }, { value: 'debit', label: 'Debit (deduct)' }]} />

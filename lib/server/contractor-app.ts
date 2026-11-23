@@ -423,8 +423,8 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
     query<{ slug: string; name: string; image_url: string | null }>(
       "SELECT slug, name, image_url FROM product_categories WHERE status = 'active' ORDER BY display_order, name",
     ),
-    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null; image_url: string | null }>(
-      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label, p.image_url
+    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null; image_url: string | null; description: string | null }>(
+      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label, p.image_url, p.description
        FROM products p JOIN product_categories c ON c.id = p.category_id
        WHERE p.status = 'active' AND c.status = 'active' ORDER BY c.display_order, p.display_order, p.name`,
     ),
@@ -439,6 +439,7 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
       category: p.slug,
       scheme: p.scheme_label ?? undefined,
       image: p.image_url ?? undefined,
+      description: p.description ?? undefined,
     })),
   }
 }

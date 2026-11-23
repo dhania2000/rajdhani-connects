@@ -61,9 +61,8 @@ export function ProductCatalogueView({ categories, products }: { categories: Pro
               </span>
               <div className="min-w-0 flex-1">
                 <p className="text-sm font-semibold text-ink">{p.name}</p>
-                <p className="text-[12px] text-ink-muted">
-                  {p.brand} · {p.unit}
-                </p>
+                <p className="text-[12px] text-ink-muted">{[p.brand, p.unit].filter(Boolean).join(' · ')}</p>
+                {p.description && <p className="mt-1 text-[12px] leading-snug whitespace-pre-line text-ink-muted">{p.description}</p>}
                 {p.scheme && (
                   <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-semibold text-brand">
                     <Sparkles className="size-3" aria-hidden="true" />
