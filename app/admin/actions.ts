@@ -9,7 +9,7 @@ export interface AdminFormState {
 }
 
 export async function adminLoginAction(_prev: AdminFormState, formData: FormData): Promise<AdminFormState> {
-  if (!isDbConfigured()) return { error: 'The database is not configured yet. Set DATABASE_URL to enable admin login.' }
+  if (!isDbConfigured()) return { error: 'The database is not configured yet. Set DB_HOST, DB_NAME, DB_USERNAME and DB_PASSWORD to enable admin login.' }
   const email = String(formData.get('email') ?? '')
   const password = String(formData.get('password') ?? '')
   if (!email.trim() || !password) return { error: 'Enter your email or username and password.' }

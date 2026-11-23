@@ -4,17 +4,31 @@ export type Conn = Pool | PoolConnection
 
 const globalForDb = globalThis as unknown as { rtsPool?: Pool }
 
+const REQUIRED_DB_ENV = ['DB_HOST', 'DB_NAME', 'DB_USERNAME', 'DB_PASSWORD'] as const
+
 export function isDbConfigured() {
-  return Boolean(process.env.DATABASE_URL)
+  return REQUIRED_DB_ENV.every((key) => Boolean(process.env[key]))
+}
+
+function getConnectionConfig() {
+  const missing = REQUIRED_DB_ENV.filter((key) => !process.env[key])
+  if (missing.length > 0) {
+    throw new Error(`Database env vars missing: ${missing.join(', ')}. Add them in Settings > Vars.`)
+  }
+  return {
+    host: process.env.DB_HOST,
+    port: Number(process.env.DB_PORT) || 3306,
+    database: process.env.DB_NAME,
+    user: process.env.DB_USERNAME,
+    password: process.env.DB_PASSWORD,
+    ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+  }
 }
 
 export function getPool(): Pool {
-  if (!process.env.DATABASE_URL) {
-    throw new Error('DATABASE_URL is not set. Add it in Settings > Vars.')
-  }
   if (!globalForDb.rtsPool) {
     const pool = mysql.createPool({
-      uri: process.env.DATABASE_URL,
+      ...getConnectionConfig(),
       connectionLimit: 5,
       waitForConnections: true,
       timezone: 'Z',
@@ -22,7 +36,6 @@ export function getPool(): Pool {
       decimalNumbers: true,
       supportBigNumbers: true,
       charset: 'utf8mb4',
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     })
     pool.on('connection', (conn) => {
       conn.query("SET time_zone = '+00:00'")
@@ -44,9 +57,8 @@ export function ensureSchema() {
     const [{ readFile }, path] = await Promise.all([import('node:fs/promises'), import('node:path')])
     const sql = await readFile(path.join(process.cwd(), 'database', 'schema.sql'), 'utf8')
     const conn = await mysql.createConnection({
-      uri: process.env.DATABASE_URL,
+      ...getConnectionConfig(),
       multipleStatements: true,
-      ssl: process.env.DATABASE_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
     })
     try {
       await conn.query(sql)
