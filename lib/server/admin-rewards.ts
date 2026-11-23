@@ -257,16 +257,19 @@ export async function transitionRedemption(
         conn,
       )
     }
+    // Status checks are decided here and passed as 1/0 flags: comparing a string parameter with a
+    // string literal in SQL fails on servers whose connection and table collations differ.
+    const flag = (v: boolean) => (v ? 1 : 0)
     await execute(
       `UPDATE redemption_requests SET status = ?, reviewed_by_admin_id = ?, reviewed_at = UTC_TIMESTAMP(),
-         rejection_reason = IF(? IN ('rejected','cancelled'), ?, rejection_reason),
+         rejection_reason = IF(?, ?, rejection_reason),
          internal_note = COALESCE(?, internal_note),
          handover_reference = COALESCE(?, handover_reference),
-         delivered_at = IF(? = 'delivered', UTC_TIMESTAMP(), delivered_at),
-         completed_at = IF(? = 'completed', UTC_TIMESTAMP(), completed_at),
-         cancelled_at = IF(? = 'cancelled', UTC_TIMESTAMP(), cancelled_at)
+         delivered_at = IF(?, UTC_TIMESTAMP(), delivered_at),
+         completed_at = IF(?, UTC_TIMESTAMP(), completed_at),
+         cancelled_at = IF(?, UTC_TIMESTAMP(), cancelled_at)
        WHERE id = ?`,
-      [to, admin.adminId, to, note, note, handoverReference, to, to, to, r.id],
+      [to, admin.adminId, flag(release), note, note, handoverReference, flag(to === 'delivered'), flag(to === 'completed'), flag(to === 'cancelled'), r.id],
       conn,
     )
     await execute(
