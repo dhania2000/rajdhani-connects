@@ -3,6 +3,7 @@ import { listActivities } from '@/lib/server/rewards-engine'
 import { listContractorOptions } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
+import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, Panel, StatusBadge, Td } from '@/components/admin/ui'
 import { activityDecisionAction, createActivityAction } from '@/app/admin/(panel)/panel-actions'
@@ -107,6 +108,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
                       <input type="hidden" name="decision" value="reject" />
                       <input name="reason" aria-label="Rejection reason" placeholder="Reason" required minLength={3} className="h-10 w-32 rounded-lg border border-border px-2 text-sm" />
                     </ActionForm>
+                    <DeleteRecordButton entity="activity" id={a.id} name={a.reference_number ?? `Activity #${a.id}`} label="activity" />
                   </div>
                 ) : a.status === 'approved' ? (
                   <ActionForm action={activityDecisionAction} submitLabel="Reverse" submitVariant="outline" inline>
@@ -115,7 +117,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
                     <input name="reason" aria-label="Reversal reason" placeholder="Reason" required minLength={3} className="h-10 w-32 rounded-lg border border-border px-2 text-sm" />
                   </ActionForm>
                 ) : (
-                  <span className="text-xs text-ink-muted">&mdash;</span>
+                  <DeleteRecordButton entity="activity" id={a.id} name={a.reference_number ?? `Activity #${a.id}`} label="activity" />
                 )}
               </Td>
             </tr>

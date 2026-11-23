@@ -330,6 +330,7 @@ export async function loginContractor(rawIdentifier: string, password: string): 
       pending_approval: 'Your account is awaiting approval from Rajdhani Tiles & Sanitary.',
       suspended: 'Your account is suspended. Please contact the store.',
       inactive: 'Your account is inactive. Please contact the store.',
+      archived: 'Your account has been archived. Please contact the store.',
     }
     return { ok: false, error: message[row.account_status] ?? GENERIC_ERROR }
   }

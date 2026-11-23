@@ -5,7 +5,7 @@ import { generateTemporaryPassword, hashPassword } from './passwords'
 import { revokeAllSessions, type AdminSession } from './auth'
 import { postLedgerEntry, InsufficientBalanceError } from './ledger'
 
-export type AccountStatus = 'pending_approval' | 'active' | 'suspended' | 'inactive'
+export type AccountStatus = 'pending_approval' | 'active' | 'suspended' | 'inactive' | 'archived'
 export type VerificationStatus = 'pending' | 'verified' | 'rejected'
 
 const mobile = z
@@ -204,7 +204,7 @@ export async function updateContractorDetails(admin: AdminSession, contractorId:
   }
 }
 
-export type StatusAction = 'approve' | 'verify' | 'reject' | 'suspend' | 'reactivate' | 'deactivate'
+export type StatusAction = 'approve' | 'verify' | 'reject' | 'suspend' | 'reactivate' | 'deactivate' | 'archive' | 'unarchive'
 
 const STATUS_TRANSITIONS: Record<
   StatusAction,
@@ -214,8 +214,10 @@ const STATUS_TRANSITIONS: Record<
   verify: { from: ['pending_approval', 'active', 'suspended', 'inactive'], verification: 'verified', log: 'verified' },
   reject: { from: ['pending_approval'], to: 'inactive', verification: 'rejected', log: 'rejected', revoke: true },
   suspend: { from: ['active'], to: 'suspended', log: 'suspended', revoke: true },
-  reactivate: { from: ['suspended', 'inactive'], to: 'active', log: 'reactivated' },
+  reactivate: { from: ['suspended', 'inactive', 'archived'], to: 'active', log: 'reactivated' },
   deactivate: { from: ['active', 'suspended', 'pending_approval'], to: 'inactive', log: 'deactivated', revoke: true },
+  archive: { from: ['pending_approval', 'active', 'suspended', 'inactive'], to: 'archived', log: 'archived', revoke: true },
+  unarchive: { from: ['archived'], to: 'inactive', log: 'unarchived' },
 }
 
 export async function changeContractorStatus(admin: AdminSession, contractorId: number, action: StatusAction, note: string | null) {
@@ -265,6 +267,60 @@ export async function changeContractorStatus(admin: AdminSession, contractorId: 
   })
   if (outcome.ok && rule.revoke) await revokeAllSessions('contractor', contractorId)
   return outcome
+}
+
+// Contractors with sales, claims, or ledger entries keep their financial history; those must be archived instead.
+export async function deleteContractor(admin: AdminSession, contractorId: number) {
+  const outcome = await withTransaction(async (conn) => {
+    const c = await queryOne<{ name: string; contractor_code: string }>(
+      'SELECT name, contractor_code FROM contractors WHERE id = ? FOR UPDATE',
+      [contractorId],
+      conn,
+    )
+    if (!c) return { ok: false as const, error: 'Contractor not found.' }
+    const history = await queryOne<{ n: number }>(
+      `SELECT (SELECT COUNT(*) FROM reward_activities WHERE contractor_id = ?)
+            + (SELECT COUNT(*) FROM redemption_requests WHERE contractor_id = ?)
+            + (SELECT COUNT(*) FROM reward_transactions WHERE contractor_id = ?) AS n`,
+      [contractorId, contractorId, contractorId],
+      conn,
+    )
+    if (Number(history?.n ?? 0) > 0) {
+      return { ok: false as const, error: `${c.name} has sales, claims, or ledger history. Archive the account instead.` }
+    }
+    await execute('DELETE FROM reward_balances WHERE contractor_id = ?', [contractorId], conn)
+    await execute('DELETE FROM contractors WHERE id = ?', [contractorId], conn)
+    await writeAudit(
+      {
+        actorType: 'admin',
+        actorId: admin.adminId,
+        action: 'contractor.deleted',
+        entityType: 'contractor',
+        entityId: contractorId,
+        summary: `Deleted ${c.name} (${c.contractor_code})`,
+      },
+      conn,
+    )
+    return { ok: true as const }
+  })
+  return outcome
+}
+
+export async function setContractorPhoto(
+  actor: { type: 'admin' | 'contractor'; id: number },
+  contractorId: number,
+  photoUrl: string | null,
+) {
+  const r = await execute('UPDATE contractors SET photo_url = ? WHERE id = ?', [photoUrl, contractorId])
+  if (r.affectedRows === 0) return { ok: false as const, error: 'Contractor not found.' }
+  await writeAudit({
+    actorType: actor.type,
+    actorId: actor.id,
+    action: photoUrl ? 'contractor.photo_updated' : 'contractor.photo_removed',
+    entityType: 'contractor',
+    entityId: contractorId,
+  })
+  return { ok: true as const }
 }
 
 export async function resetContractorPassword(admin: AdminSession, contractorId: number) {
@@ -396,6 +452,7 @@ export interface ContractorListRow {
   contractor_code: string
   name: string
   mobile: string
+  photo_url: string | null
   area: string | null
   city: string | null
   account_status: AccountStatus
@@ -423,9 +480,11 @@ export async function listContractors(filters: ContractorListFilters) {
     const like = `%${filters.q.replace(/[%_\\]/g, '\\$&')}%`
     params.push(like, like, like, like, like)
   }
-  if (filters.status && ['pending_approval', 'active', 'suspended', 'inactive'].includes(filters.status)) {
+  if (filters.status && ['pending_approval', 'active', 'suspended', 'inactive', 'archived'].includes(filters.status)) {
     where.push('c.account_status = ?')
     params.push(filters.status)
+  } else {
+    where.push("c.account_status <> 'archived'")
   }
   if (filters.verification && ['pending', 'verified', 'rejected'].includes(filters.verification)) {
     where.push('c.verification_status = ?')
@@ -435,7 +494,7 @@ export async function listContractors(filters: ContractorListFilters) {
   const whereSql = where.join(' AND ')
   const [rows, total] = await Promise.all([
     query<ContractorListRow>(
-      `SELECT c.id, c.contractor_code, c.name, c.mobile, c.area, c.city, c.account_status, c.verification_status,
+      `SELECT c.id, c.contractor_code, c.name, c.mobile, c.photo_url, c.area, c.city, c.account_status, c.verification_status,
               c.joining_date, COALESCE(b.available, 0) AS available, COALESCE(b.pending, 0) AS pending, cc.last_login_at
        FROM contractors c
        LEFT JOIN contractor_credentials cc ON cc.contractor_id = c.id
@@ -460,6 +519,7 @@ export interface ContractorDetail {
   mobile: string
   alternate_mobile: string | null
   email: string | null
+  photo_url: string | null
   address: string | null
   area: string | null
   city: string | null

@@ -11,7 +11,9 @@ import {
   contractorDetailsSchema,
   createContractor,
   createContractorSchema,
+  deleteContractor,
   resetContractorPassword,
+  setContractorPhoto,
   unlockContractor,
   updateContractorDetails,
   type IssuedCredentials,
@@ -43,6 +45,13 @@ import {
   transitionRedemption,
   type RedemptionStatus,
 } from '@/lib/server/admin-rewards'
+import {
+  DELETABLE_ENTITIES,
+  deleteRecord,
+  notificationEditSchema,
+  updateNotification,
+  type DeletableEntity,
+} from '@/lib/server/record-deletes'
 
 export interface AdminActionState {
   ok?: boolean
@@ -102,7 +111,42 @@ export async function updateContractorAction(_: AdminActionState, fd: FormData):
   return done(await updateContractorDetails(admin, id, parsed.data), 'Details saved.')
 }
 
-const STATUS_ACTIONS: StatusAction[] = ['approve', 'verify', 'reject', 'suspend', 'reactivate', 'deactivate']
+const STATUS_ACTIONS: StatusAction[] = ['approve', 'verify', 'reject', 'suspend', 'reactivate', 'deactivate', 'archive', 'unarchive']
+
+export async function deleteContractorAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Contractor not found.' }
+  return done(await deleteContractor(admin, id), 'Contractor deleted.')
+}
+
+export async function contractorPhotoAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Contractor not found.' }
+  if (fd.get('remove') === '1') return done(await setContractorPhoto({ type: 'admin', id: admin.adminId }, id, null), 'Photo removed.')
+  const upload = await uploadImage(fd, 'photoFile', admin.adminId)
+  if (!upload) return { error: 'Choose an image to upload.' }
+  if ('error' in upload) return { error: upload.error }
+  return done(await setContractorPhoto({ type: 'admin', id: admin.adminId }, id, upload.url), 'Photo updated.')
+}
+
+export async function deleteRecordAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  const entity = String(fd.get('entity')) as DeletableEntity
+  if (!id || !DELETABLE_ENTITIES.includes(entity)) return { error: 'Invalid request.' }
+  return done(await deleteRecord(admin, entity, id), 'Deleted.')
+}
+
+export async function updateNotificationAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Notification not found.' }
+  const parsed = parse(notificationEditSchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  return done(await updateNotification(admin, id, parsed.data), 'Notification updated.')
+}
 
 export async function contractorStatusAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
   const admin = await requireAdmin()

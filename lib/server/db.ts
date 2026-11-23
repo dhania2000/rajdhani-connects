@@ -47,13 +47,25 @@ export function getPool(): Pool {
 
 const globalForSchema = globalThis as unknown as { rtsSchema?: Promise<void> }
 
+// Databases created by an earlier schema.sql need these additive changes.
+async function runMigrations() {
+  const [cols] = await getPool().query<RowDataPacket[]>(
+    "SELECT COLUMN_TYPE AS t FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'contractors' AND column_name = 'account_status'",
+  )
+  if (!String(cols[0]?.t ?? '').includes("'archived'")) {
+    await getPool().query(
+      "ALTER TABLE contractors MODIFY account_status ENUM('pending_approval','active','suspended','inactive','archived') NOT NULL DEFAULT 'pending_approval'",
+    )
+  }
+}
+
 // Creates every table on first use against an empty database, so the store never has to import SQL by hand.
 export function ensureSchema() {
   globalForSchema.rtsSchema ??= (async () => {
     const [rows] = await getPool().query<RowDataPacket[]>(
       "SELECT COUNT(*) AS n FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'audit_logs'",
     )
-    if (Number(rows[0]?.n ?? 0) > 0) return
+    if (Number(rows[0]?.n ?? 0) > 0) return runMigrations()
     const [{ readFile }, path] = await Promise.all([import('node:fs/promises'), import('node:path')])
     const sql = await readFile(path.join(process.cwd(), 'database', 'schema.sql'), 'utf8')
     const conn = await mysql.createConnection({

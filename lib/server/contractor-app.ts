@@ -46,6 +46,7 @@ const ACCOUNT_STATUS_LABEL: Record<string, ContractorProfile['accountStatus']> =
   suspended: 'Suspended',
   inactive: 'Inactive',
   pending_approval: 'Inactive',
+  archived: 'Inactive',
 }
 
 function toDate(value: string) {

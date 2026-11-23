@@ -2,6 +2,7 @@ import { listRules, RULE_TYPES, type RuleRow } from '@/lib/server/rewards-engine
 import { listContractorOptions, listGifts } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
+import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtDate, fmtNumber, Panel, StatusBadge, Td, toInputDate } from '@/components/admin/ui'
 import { ruleStatusAction, saveRuleAction } from '@/app/admin/(panel)/panel-actions'
@@ -148,6 +149,7 @@ export async function RulesTab() {
                       <input type="hidden" name="status" value={s} />
                     </ActionForm>
                   ))}
+                  <DeleteRecordButton entity="rule" id={r.id} name={r.name} label="rule" />
                 </div>
               </Td>
             </tr>

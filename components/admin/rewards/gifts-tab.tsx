@@ -1,6 +1,7 @@
 import { listGifts, type GiftRow } from '@/lib/server/admin-rewards'
 import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
+import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
 import { ImageUploadField } from '@/components/admin/image-upload-field'
 import { CheckboxInput, FormGrid, TextArea, TextInput } from '@/components/admin/fields'
 import { DataTable, EmptyState, fmtNumber, Panel, StatusBadge, Td } from '@/components/admin/ui'
@@ -92,6 +93,7 @@ export async function GiftsTab() {
                     <ActionForm action={archiveGiftAction} submitLabel="Archive" submitVariant="outline" inline>
                       <input type="hidden" name="id" value={g.id} />
                     </ActionForm>
+                    <DeleteRecordButton entity="gift" id={g.id} name={g.name} label="gift" />
                   </div>
                 </Td>
               </tr>

@@ -73,7 +73,7 @@ CREATE TABLE IF NOT EXISTS contractors (
   joining_date         DATE            NOT NULL,
   notes                TEXT            NULL,
   verification_status  ENUM('pending','verified','rejected') NOT NULL DEFAULT 'pending',
-  account_status       ENUM('pending_approval','active','suspended','inactive') NOT NULL DEFAULT 'pending_approval',
+  account_status       ENUM('pending_approval','active','suspended','inactive','archived') NOT NULL DEFAULT 'pending_approval',
   approved_at          DATETIME        NULL,
   approved_by_admin_id BIGINT UNSIGNED NULL,
   created_by_admin_id  BIGINT UNSIGNED NULL,
