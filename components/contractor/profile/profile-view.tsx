@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone } from 'lucide-react'
 import { contractorLogoutAction } from '@/app/contractor/actions'
 import { formatDate } from '@/lib/format'
+import { STORE_PHONE } from '@/lib/mock-data'
 import type { NotificationPreferences } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { VerifiedPartnerBadge } from '@/components/contractor/shared/verified-partner-badge'
@@ -23,11 +24,11 @@ const prefLabels: Record<keyof NotificationPreferences, string> = {
 
 export function ProfileView() {
   const router = useRouter()
-  const { profile, preferences, setPreference, storePhone } = useContractor()
+  const { profile, preferences, setPreference } = useContractor()
   const [panel, setPanel] = useState<Panel>('none')
   const [loggingOut, setLoggingOut] = useState(false)
   const [pending, startTransition] = useTransition()
-  const phoneDigits = storePhone.replace(/\D/g, '')
+  const phoneDigits = STORE_PHONE.replace(/\D/g, '')
 
   const details: [string, string][] = [
     ['Contractor ID', profile.id],
@@ -86,11 +87,12 @@ export function ProfileView() {
         <MenuRow icon={HelpCircle} label="Help & Support" expanded={panel === 'help'} onClick={() => setPanel(panel === 'help' ? 'none' : 'help')} />
         {panel === 'help' && (
           <div className="grid grid-cols-2 gap-2.5 border-t border-border bg-app-bg p-4">
-            <a href={`tel:+${phoneDigits}`} className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
+            <a href={`tel:+${phoneDigits}`} aria-label={`Call store at ${STORE_PHONE}`} className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
               <Phone className="size-4 text-brand" aria-hidden="true" /> Call Store
             </a>
             <a
               href={`https://wa.me/${phoneDigits}`}
+              aria-label={`WhatsApp store at ${STORE_PHONE}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs"

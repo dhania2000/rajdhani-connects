@@ -8,7 +8,7 @@ export default function LoggedOutPage() {
       <BrandLogo className="size-16" />
       <h1 className="text-xl font-bold">{BRAND_NAME}</h1>
       <p className="text-sm text-white/75">You have been logged out of the Contractor Rewards app.</p>
-      <Link href="/contractor" className="mt-2 flex h-11 items-center rounded-lg bg-white px-6 text-sm font-semibold text-navy">
+      <Link href="/contractor/login" className="mt-2 flex h-11 items-center rounded-lg bg-white px-6 text-sm font-semibold text-navy">
         Log in again
       </Link>
     </main>

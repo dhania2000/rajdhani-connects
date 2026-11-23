@@ -17,6 +17,7 @@ import type {
 } from '@/lib/types'
 
 export const BRAND_NAME = 'Rajdhani Tiles & Sanitary'
+export const STORE_PHONE = '+91 6378743129'
 
 export const contractorProfile: ContractorProfile = {
   id: 'RTS-C-1042',
