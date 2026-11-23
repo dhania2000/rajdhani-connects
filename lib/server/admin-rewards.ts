@@ -621,6 +621,52 @@ export async function getDashboardMetrics() {
   return { counts: counts!, monthly, top, recent }
 }
 
+export async function listContractorOptions() {
+  return query<{ id: number; name: string; contractor_code: string; mobile: string }>(
+    "SELECT id, name, contractor_code, mobile FROM contractors WHERE account_status IN ('active','pending_approval') ORDER BY name LIMIT 2000",
+  )
+}
+
+export async function listRecentTransactions(limit = 50) {
+  return query<{
+    id: number
+    txn_code: string | null
+    contractor_id: number
+    contractor_name: string
+    currency: 'points' | 'tokens'
+    entry_type: string
+    amount: number
+    available_after: number
+    reason: string | null
+    created_by_type: string
+    created_at: string
+  }>(
+    `SELECT t.id, t.txn_code, t.contractor_id, c.name AS contractor_name, t.currency, t.entry_type, t.amount, t.available_after,
+            t.reason, t.created_by_type, t.created_at
+     FROM reward_transactions t JOIN contractors c ON c.id = t.contractor_id
+     ORDER BY t.id DESC LIMIT ?`,
+    [limit],
+  )
+}
+
+export async function getRewardsOverview() {
+  const [row] = await query<Record<string, number>>(
+    `SELECT
+       (SELECT COUNT(*) FROM reward_rules WHERE status = 'active') AS active_rules,
+       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE currency = 'points' AND entry_type IN ('earn','manual_credit')) AS points_issued,
+       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE currency = 'tokens' AND entry_type IN ('earn','manual_credit')) AS tokens_issued,
+       (SELECT COALESCE(SUM(available),0) FROM reward_balances WHERE currency = 'points') AS points_available,
+       (SELECT COALESCE(SUM(available),0) FROM reward_balances WHERE currency = 'tokens') AS tokens_available,
+       (SELECT COUNT(*) FROM reward_activities WHERE status = 'submitted') AS pending_entries,
+       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE currency = 'points' AND entry_type = 'redeem') AS points_redeemed,
+       (SELECT COUNT(*) FROM redemption_requests WHERE status IN ('requested','under_review')) AS pending_claims,
+       (SELECT COUNT(*) FROM gift_catalogue WHERE status = 'active' AND is_visible = 1) AS active_gifts,
+       (SELECT COUNT(*) FROM offers WHERE status = 'published' AND UTC_DATE() BETWEEN start_date AND end_date) AS active_offers,
+       (SELECT COUNT(*) FROM offers WHERE status = 'published' AND end_date BETWEEN UTC_DATE() AND DATE_ADD(UTC_DATE(), INTERVAL 14 DAY)) AS expiring_offers`,
+  )
+  return Object.fromEntries(Object.entries(row ?? {}).map(([k, v]) => [k, Number(v ?? 0)])) as Record<string, number>
+}
+
 export async function getReport(type: 'liability' | 'redemptions' | 'leaderboard' | 'ledger') {
   if (type === 'liability') {
     return query(
