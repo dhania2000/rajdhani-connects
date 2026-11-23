@@ -251,8 +251,8 @@ export async function transitionRedemption(
       }
       await execute(
         release
-          ? 'UPDATE gift_availability SET reserved_quantity = GREATEST(reserved_quantity - 1, 0) WHERE gift_id = ?'
-          : 'UPDATE gift_availability SET reserved_quantity = GREATEST(reserved_quantity - 1, 0), issued_quantity = issued_quantity + 1 WHERE gift_id = ?',
+          ? 'UPDATE gift_availability SET reserved_quantity = IF(reserved_quantity > 0, reserved_quantity - 1, 0) WHERE gift_id = ?'
+          : 'UPDATE gift_availability SET reserved_quantity = IF(reserved_quantity > 0, reserved_quantity - 1, 0), issued_quantity = issued_quantity + 1 WHERE gift_id = ?',
         [r.gift_id],
         conn,
       )

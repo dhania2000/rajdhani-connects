@@ -3,6 +3,7 @@
 import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 import { requireAdmin } from '@/lib/server/auth'
+import { InsufficientBalanceError } from '@/lib/server/ledger'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import {
   adjustContractorPoints,
@@ -297,7 +298,16 @@ export async function redemptionAction(_: AdminActionState, fd: FormData): Promi
   const note = String(fd.get('note') ?? '').trim() || null
   const ref = String(fd.get('handoverReference') ?? '').trim() || null
   if (to === 'rejected' && !note) return { error: 'Add a rejection reason for the contractor.' }
-  return done(await transitionRedemption(admin, id, to, note, ref), 'Claim updated.')
+  try {
+    return done(await transitionRedemption(admin, id, to, note, ref), 'Claim updated.')
+  } catch (error) {
+    // Surface the cause to the admin instead of crashing the page; full details go to the server log.
+    console.error(`Redemption ${id} -> ${to} failed`, error)
+    if (error instanceof InsufficientBalanceError || /balance negative/i.test(String((error as Error)?.message))) {
+      return { error: "The contractor's reserved points don't cover this claim. Check their balance under Points & Tokens, then try again." }
+    }
+    return { error: `Could not update this claim: ${(error as Error)?.message ?? 'unknown error'}` }
+  }
 }
 
 // Offers, notifications, content -----------------------------------------------

@@ -1,6 +1,6 @@
 'use client'
 
-import { useActionState, useEffect, useState, type ReactNode } from 'react'
+import { useActionState, useEffect, useMemo, useState, type ReactNode } from 'react'
 import { useFormStatus } from 'react-dom'
 import { toast } from 'sonner'
 import { Loader2, Trash2 } from 'lucide-react'
@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { deleteRecordAction, type AdminActionState } from '@/app/admin/(panel)/panel-actions'
+import { withSafeAction } from './safe-action'
 
 type Action = (prev: AdminActionState, formData: FormData) => Promise<AdminActionState>
 
@@ -43,7 +44,8 @@ export function ConfirmActionButton({
   onDone?: () => void
 }) {
   const [open, setOpen] = useState(false)
-  const [state, formAction] = useActionState<AdminActionState, FormData>(action, {})
+  const safeAction = useMemo(() => withSafeAction(action), [action])
+  const [state, formAction] = useActionState<AdminActionState, FormData>(safeAction, {})
 
   useEffect(() => {
     if (state.error) toast.error(state.error)
