@@ -327,7 +327,7 @@ export async function loginContractor(rawIdentifier: string, password: string): 
   if (row.account_status !== 'active') {
     await recordAttempt('contractor', identifier, row.contractor_id, false, `status_${row.account_status}`)
     const message: Record<string, string> = {
-      pending_approval: 'Your account is awaiting approval from Rajdhani Tiles & Sanitary.',
+      pending_approval: 'Your account is awaiting approval from Rajdhani Connects.',
       suspended: 'Your account is suspended. Please contact the store.',
       inactive: 'Your account is inactive. Please contact the store.',
       archived: 'Your account has been archived. Please contact the store.',

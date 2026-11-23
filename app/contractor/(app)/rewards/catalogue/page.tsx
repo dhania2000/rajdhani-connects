@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import { PageHeader } from '@/components/contractor/layout/page-header'
 import { GiftCatalogueView } from '@/components/contractor/rewards/gift-catalogue-view'
 
-export const metadata: Metadata = { title: 'Reward Catalogue – Rajdhani Tiles & Sanitary' }
+export const metadata: Metadata = { title: 'Reward Catalogue – Rajdhani Connects' }
 
 export default async function RewardCataloguePage({
   searchParams,

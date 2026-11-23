@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { ChevronRight } from 'lucide-react'
-import { formatINR } from '@/lib/format'
+import { formatPoints } from '@/lib/format'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { GiftBoxIcon } from '@/components/contractor/shared/gift-box-icon'
 
@@ -17,7 +17,7 @@ export function RewardBalanceCard() {
       <GiftBoxIcon className="size-[52px] shrink-0 max-[340px]:size-11" />
       <div className="min-w-0 flex-1">
         <p className="text-[15px] font-semibold text-ink">Your Rewards</p>
-        <p className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">{formatINR(availablePoints)}</p>
+        <p className="text-[26px] leading-tight font-extrabold tracking-tight text-ink">{formatPoints(availablePoints)}</p>
         <div className="flex items-end justify-between gap-2">
           <p className="text-[12px] whitespace-nowrap text-ink-muted max-[340px]:text-[11px]">(Available Value)</p>
           <Link
