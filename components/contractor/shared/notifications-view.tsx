@@ -14,7 +14,7 @@ const icons: Record<AppNotification['kind'], { icon: typeof Bell; className: str
 }
 
 export function NotificationsView() {
-  const { readNotificationIds, unreadCount, markAllNotificationsRead } = useContractor()
+  const { unreadCount, markAllNotificationsRead } = useContractor()
 
   return (
     <main className="flex flex-col gap-3 p-4">
@@ -30,9 +30,9 @@ export function NotificationsView() {
         </button>
       </div>
       <ul className="flex flex-col gap-2.5">
-        {notifications.map((n) => {
+        {notifications.map((n, index) => {
           const { icon: Icon, className } = icons[n.kind]
-          const unread = !readNotificationIds.includes(n.id)
+          const unread = index < unreadCount
           return (
             <li key={n.id} className={cn('flex gap-3 rounded-xl bg-white p-3.5 shadow-[0_1px_3px_rgba(28,35,64,0.08)]', unread && 'ring-1 ring-brand/25')}>
               <span className={cn('flex size-9 shrink-0 items-center justify-center rounded-full', className)} aria-hidden="true">

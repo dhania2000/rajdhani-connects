@@ -1,0 +1,20 @@
+import type { Metadata } from 'next'
+import type { ReactNode } from 'react'
+import { requireAdmin } from '@/lib/server/auth'
+import { AdminShell } from '@/components/admin/shell/admin-shell'
+import { adminLogoutAction } from '../actions'
+
+export const metadata: Metadata = {
+  title: 'Admin – Rajdhani Tiles & Sanitary',
+  robots: { index: false, follow: false },
+}
+export const dynamic = 'force-dynamic'
+
+export default async function AdminPanelLayout({ children }: { children: ReactNode }) {
+  const admin = await requireAdmin()
+  return (
+    <AdminShell brand="Rajdhani Tiles & Sanitary" adminName={admin.name} adminRole={admin.role} logoutAction={adminLogoutAction}>
+      {children}
+    </AdminShell>
+  )
+}

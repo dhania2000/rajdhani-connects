@@ -59,7 +59,7 @@ export async function listGifts() {
   return query<GiftRow>(
     `SELECT g.*, COALESCE(s.total_quantity, 0) AS total_quantity, COALESCE(s.reserved_quantity, 0) AS reserved_quantity,
             COALESCE(s.issued_quantity, 0) AS issued_quantity
-     FROM gift_catalogue g LEFT JOIN gift_stock s ON s.gift_id = g.id
+     FROM gift_catalogue g LEFT JOIN gift_availability s ON s.gift_id = g.id
      WHERE g.status <> 'archived' ORDER BY g.display_order, g.name`,
   )
 }
@@ -83,7 +83,7 @@ export async function saveGift(admin: AdminSession, giftId: number | null, input
     ]
     if (id) {
       const stock = await queryOne<{ reserved_quantity: number; issued_quantity: number }>(
-        'SELECT reserved_quantity, issued_quantity FROM gift_stock WHERE gift_id = ? FOR UPDATE',
+        'SELECT reserved_quantity, issued_quantity FROM gift_availability WHERE gift_id = ? FOR UPDATE',
         [id],
         conn,
       )
@@ -108,7 +108,7 @@ export async function saveGift(admin: AdminSession, giftId: number | null, input
       await execute('UPDATE gift_catalogue SET gift_code = ? WHERE id = ?', [padCode('GIFT-', id, 4), id], conn)
     }
     await execute(
-      `INSERT INTO gift_stock (gift_id, total_quantity) VALUES (?, ?) ON DUPLICATE KEY UPDATE total_quantity = VALUES(total_quantity)`,
+      `INSERT INTO gift_availability (gift_id, total_quantity) VALUES (?, ?) ON DUPLICATE KEY UPDATE total_quantity = VALUES(total_quantity)`,
       [id, input.stock],
       conn,
     )
@@ -251,8 +251,8 @@ export async function transitionRedemption(
       }
       await execute(
         release
-          ? 'UPDATE gift_stock SET reserved_quantity = GREATEST(reserved_quantity - 1, 0) WHERE gift_id = ?'
-          : 'UPDATE gift_stock SET reserved_quantity = GREATEST(reserved_quantity - 1, 0), issued_quantity = issued_quantity + 1 WHERE gift_id = ?',
+          ? 'UPDATE gift_availability SET reserved_quantity = GREATEST(reserved_quantity - 1, 0) WHERE gift_id = ?'
+          : 'UPDATE gift_availability SET reserved_quantity = GREATEST(reserved_quantity - 1, 0), issued_quantity = issued_quantity + 1 WHERE gift_id = ?',
         [r.gift_id],
         conn,
       )
@@ -297,7 +297,7 @@ export async function assignGift(admin: AdminSession, contractorId: number, gift
     const gift = await queryOne<{ name: string; total_quantity: number; reserved_quantity: number; issued_quantity: number }>(
       `SELECT g.name, COALESCE(s.total_quantity,0) AS total_quantity, COALESCE(s.reserved_quantity,0) AS reserved_quantity,
               COALESCE(s.issued_quantity,0) AS issued_quantity
-       FROM gift_catalogue g LEFT JOIN gift_stock s ON s.gift_id = g.id WHERE g.id = ? AND g.status = 'active' FOR UPDATE`,
+       FROM gift_catalogue g LEFT JOIN gift_availability s ON s.gift_id = g.id WHERE g.id = ? AND g.status = 'active' FOR UPDATE`,
       [giftId],
       conn,
     )
@@ -314,7 +314,7 @@ export async function assignGift(admin: AdminSession, contractorId: number, gift
       conn,
     )
     await execute('UPDATE redemption_requests SET claim_code = ? WHERE id = ?', [padCode('CLM-', r.insertId), r.insertId], conn)
-    await execute('UPDATE gift_stock SET reserved_quantity = reserved_quantity + 1 WHERE gift_id = ?', [giftId], conn)
+    await execute('UPDATE gift_availability SET reserved_quantity = reserved_quantity + 1 WHERE gift_id = ?', [giftId], conn)
     await execute(
       `INSERT INTO redemption_status_history (redemption_id, from_status, to_status, note, actor_type, actor_id) VALUES (?, NULL, 'approved', ?, 'admin', ?)`,
       [r.insertId, `Direct assignment: ${note}`, admin.adminId],
@@ -381,7 +381,7 @@ export async function listOffers() {
     status: 'draft' | 'published' | 'archived'
     audience_ids: string | null
   }>(
-    `SELECT o.*, (SELECT GROUP_CONCAT(contractor_id) FROM offer_audience a WHERE a.offer_id = o.id) AS audience_ids
+    `SELECT o.*, (SELECT GROUP_CONCAT(contractor_id) FROM offer_contractors a WHERE a.offer_id = o.id) AS audience_ids
      FROM offers o WHERE o.status <> 'archived' ORDER BY o.status = 'published' DESC, o.start_date DESC`,
   )
 }
@@ -416,7 +416,7 @@ export async function saveOffer(admin: AdminSession, offerId: number | null, inp
         [...values, id],
         conn,
       )
-      await execute('DELETE FROM offer_audience WHERE offer_id = ?', [id], conn)
+      await execute('DELETE FROM offer_contractors WHERE offer_id = ?', [id], conn)
     } else {
       const r = await execute(
         `INSERT INTO offers (title, description, banner_url, audience, start_date, end_date, reward_type, target_value, target_unit,
@@ -437,7 +437,7 @@ export async function saveOffer(admin: AdminSession, offerId: number | null, inp
       )
       recipients = rows.map((r) => r.id)
       if (!recipients.length) return { ok: false as const, error: 'None of the contractor IDs exist.' }
-      for (const cid of recipients) await execute('INSERT INTO offer_audience (offer_id, contractor_id) VALUES (?, ?)', [id, cid], conn)
+      for (const cid of recipients) await execute('INSERT INTO offer_contractors (offer_id, contractor_id) VALUES (?, ?)', [id, cid], conn)
     }
     if (input.status === 'published' && !wasPublished) {
       const n = await execute(
@@ -595,23 +595,23 @@ export async function getDashboardMetrics() {
     `SELECT
        (SELECT COUNT(*) FROM contractors) AS contractors_total,
        (SELECT COUNT(*) FROM contractors WHERE account_status = 'active') AS contractors_active,
-       (SELECT COUNT(*) FROM contractors WHERE account_status = 'pending') AS contractors_pending,
+       (SELECT COUNT(*) FROM contractors WHERE account_status = 'pending_approval') AS contractors_pending,
        (SELECT COUNT(*) FROM reward_activities WHERE status = 'submitted') AS activities_pending,
        (SELECT COUNT(*) FROM redemption_requests WHERE status IN ('requested','under_review','approved','ready_for_handover')) AS redemptions_open,
-       (SELECT COALESCE(SUM(available),0) FROM contractor_balances WHERE currency = 'points') AS points_available,
-       (SELECT COALESCE(SUM(reserved),0) FROM contractor_balances WHERE currency = 'points') AS points_reserved,
-       (SELECT COALESCE(SUM(available),0) FROM contractor_balances WHERE currency = 'tokens') AS tokens_available`,
+       (SELECT COALESCE(SUM(available),0) FROM reward_balances WHERE currency = 'points') AS points_available,
+       (SELECT COALESCE(SUM(reserved),0) FROM reward_balances WHERE currency = 'points') AS points_reserved,
+       (SELECT COALESCE(SUM(available),0) FROM reward_balances WHERE currency = 'tokens') AS tokens_available`,
   )
   const monthly = await query<{ month: string; issued: number; redeemed: number }>(
     `SELECT DATE_FORMAT(created_at, '%Y-%m') AS month,
-            COALESCE(SUM(CASE WHEN entry_type IN ('earn','adjustment_credit') THEN amount END), 0) AS issued,
+            COALESCE(SUM(CASE WHEN entry_type IN ('earn','manual_credit') THEN amount END), 0) AS issued,
             COALESCE(SUM(CASE WHEN entry_type = 'redeem' THEN amount END), 0) AS redeemed
      FROM reward_transactions WHERE currency = 'points' AND created_at >= DATE_SUB(UTC_DATE(), INTERVAL 6 MONTH)
      GROUP BY month ORDER BY month`,
   )
   const top = await query<{ id: number; name: string; contractor_code: string; earned: number; sales: number }>(
     `SELECT c.id, c.name, c.contractor_code,
-            COALESCE((SELECT SUM(amount) FROM reward_transactions t WHERE t.contractor_id = c.id AND t.currency = 'points' AND t.entry_type IN ('earn','adjustment_credit')), 0) AS earned,
+            COALESCE((SELECT SUM(amount) FROM reward_transactions t WHERE t.contractor_id = c.id AND t.currency = 'points' AND t.entry_type IN ('earn','manual_credit')), 0) AS earned,
             COALESCE((SELECT SUM(eligible_amount) FROM reward_activities a WHERE a.contractor_id = c.id AND a.status = 'approved'), 0) AS sales
      FROM contractors c ORDER BY earned DESC, sales DESC LIMIT 5`,
   )
@@ -625,7 +625,7 @@ export async function getReport(type: 'liability' | 'redemptions' | 'leaderboard
   if (type === 'liability') {
     return query(
       `SELECT c.contractor_code, c.name, c.mobile, b.currency, b.available, b.reserved, b.redeemed, b.total_earned
-       FROM contractor_balances b JOIN contractors c ON c.id = b.contractor_id ORDER BY b.available DESC`,
+       FROM reward_balances b JOIN contractors c ON c.id = b.contractor_id ORDER BY b.available DESC`,
     )
   }
   if (type === 'redemptions') {
@@ -654,8 +654,8 @@ export async function getContractorPerformance(contractorId: number, from: strin
     `SELECT
        (SELECT COUNT(*) FROM reward_activities WHERE contractor_id = ? AND status = 'approved' AND activity_date BETWEEN ? AND ?) AS sales,
        (SELECT COALESCE(SUM(eligible_amount),0) FROM reward_activities WHERE contractor_id = ? AND status = 'approved' AND activity_date BETWEEN ? AND ?) AS sales_value,
-       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE contractor_id = ? AND currency = 'points' AND entry_type IN ('earn','adjustment_credit') AND DATE(created_at) BETWEEN ? AND ?) AS points,
-       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE contractor_id = ? AND currency = 'tokens' AND entry_type IN ('earn','adjustment_credit') AND DATE(created_at) BETWEEN ? AND ?) AS tokens,
+       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE contractor_id = ? AND currency = 'points' AND entry_type IN ('earn','manual_credit') AND DATE(created_at) BETWEEN ? AND ?) AS points,
+       (SELECT COALESCE(SUM(amount),0) FROM reward_transactions WHERE contractor_id = ? AND currency = 'tokens' AND entry_type IN ('earn','manual_credit') AND DATE(created_at) BETWEEN ? AND ?) AS tokens,
        (SELECT COUNT(*) FROM reward_activities WHERE contractor_id = ? AND status = 'submitted' AND activity_date BETWEEN ? AND ?) AS pending`,
     [contractorId, from, to, contractorId, from, to, contractorId, from, to, contractorId, from, to, contractorId, from, to],
   )

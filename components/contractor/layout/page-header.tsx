@@ -2,7 +2,6 @@
 
 import { useRouter } from 'next/navigation'
 import { ChevronLeft } from 'lucide-react'
-import { MobileStatusBar } from './mobile-status-bar'
 
 interface PageHeaderProps {
   title: string
@@ -20,8 +19,7 @@ export function PageHeader({ title, subtitle, backHref = '/contractor', action }
   }
 
   return (
-    <header className="sticky top-0 z-30 bg-gradient-to-b from-navy to-navy-2">
-      <MobileStatusBar />
+    <header className="sticky top-0 z-30 bg-gradient-to-b from-navy to-navy-2 pt-[env(safe-area-inset-top)]">
       <div className="flex h-14 items-center gap-1 px-2">
         <button
           type="button"
