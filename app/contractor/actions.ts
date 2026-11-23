@@ -13,13 +13,14 @@ import { isDbConfigured } from '@/lib/server/db'
 import { passwordPolicyError } from '@/lib/server/passwords'
 import {
   claimGift,
+  getPerformance,
   markNotificationsRead,
   setNotificationPreference,
   type ClaimResult,
 } from '@/lib/server/contractor-app'
 import { setContractorPhoto } from '@/lib/server/contractors'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
-import type { NotificationPreferences } from '@/lib/types'
+import type { NotificationPreferences, PerformanceMetrics } from '@/lib/types'
 
 export interface FormState {
   error?: string
@@ -96,4 +97,18 @@ export async function markNotificationsReadAction() {
   const session = await requireContractor()
   await markNotificationsRead(session.contractorId)
   return { ok: true }
+}
+
+const performanceSchema = z.object({
+  period: z.enum(['today', 'week', 'month', 'last-month', 'custom']),
+  from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+  to: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+})
+
+export async function getPerformanceAction(period: string, from?: string, to?: string): Promise<PerformanceMetrics> {
+  const session = await requireContractor()
+  const parsed = performanceSchema.safeParse({ period, from, to })
+  if (!parsed.success) return { salesBrought: 0, rewardsEarned: 0 }
+  const { period: p, from: f, to: t } = parsed.data
+  return getPerformance(session.contractorId, p, f, t)
 }

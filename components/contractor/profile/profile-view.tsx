@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone } from 'lucide-react'
 import { contractorLogoutAction } from '@/app/contractor/actions'
 import { formatDate } from '@/lib/format'
-import { STORE_PHONE } from '@/lib/mock-data'
 import type { NotificationPreferences } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { VerifiedPartnerBadge } from '@/components/contractor/shared/verified-partner-badge'
@@ -24,11 +23,11 @@ const prefLabels: Record<keyof NotificationPreferences, string> = {
 
 export function ProfileView() {
   const router = useRouter()
-  const { profile, preferences, setPreference } = useContractor()
+  const { profile, preferences, setPreference, storePhone, content } = useContractor()
   const [panel, setPanel] = useState<Panel>('none')
   const [loggingOut, setLoggingOut] = useState(false)
   const [pending, startTransition] = useTransition()
-  const phoneDigits = STORE_PHONE.replace(/\D/g, '')
+  const phoneDigits = storePhone.replace(/\D/g, '')
 
   const details: [string, string][] = [
     ['Contractor ID', profile.id],
@@ -85,18 +84,25 @@ export function ProfileView() {
         <MenuRow icon={HelpCircle} label="Help & Support" expanded={panel === 'help'} onClick={() => setPanel(panel === 'help' ? 'none' : 'help')} />
         {panel === 'help' && (
           <div className="grid grid-cols-2 gap-2.5 border-t border-border bg-app-bg p-4">
-            <a href={`tel:+${phoneDigits}`} aria-label={`Call store at ${STORE_PHONE}`} className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
+            {content.supportMessage && <p className="col-span-2 text-[12px] text-ink-muted">{content.supportMessage}</p>}
+            {phoneDigits ? (
+            <>
+            <a href={`tel:+${phoneDigits}`} aria-label={`Call store at ${storePhone}`} className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs">
               <Phone className="size-4 text-brand" aria-hidden="true" /> Call Store
             </a>
             <a
               href={`https://wa.me/${phoneDigits}`}
-              aria-label={`WhatsApp store at ${STORE_PHONE}`}
+              aria-label={`WhatsApp store at ${storePhone}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex h-10 items-center justify-center gap-1.5 rounded-lg bg-white text-[13px] font-semibold text-ink shadow-xs"
             >
               <MessageCircle className="size-4 text-success" aria-hidden="true" /> WhatsApp
             </a>
+            </>
+            ) : (
+              <p className="col-span-2 text-[12px] text-ink-muted">Store contact number is not set yet.</p>
+            )}
           </div>
         )}
         <MenuRow icon={LogOut} label="Logout" danger onClick={() => setLoggingOut(true)} />

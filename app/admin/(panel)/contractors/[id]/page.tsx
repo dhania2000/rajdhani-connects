@@ -7,6 +7,7 @@ import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
 import { FormGrid, SelectInput, TextInput } from '@/components/admin/fields'
 import { ContractorFields } from '@/components/admin/contractors/contractor-fields'
+import { ContractorAppPanels } from '@/components/admin/contractors/contractor-app-panels'
 import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, PageHeader, Panel, StatCard, StatusBadge, Td } from '@/components/admin/ui'
 import {
   adjustPointsAction,
@@ -141,6 +142,8 @@ export default async function ContractorDetailPage({ params }: { params: Promise
           </ActionForm>
         )}
       </Panel>
+
+      <ContractorAppPanels contractorId={c.id} />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         <Panel title="Ledger">

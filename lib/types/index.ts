@@ -78,7 +78,8 @@ export interface LedgerEntry {
   amount: number
 }
 
-export type ProductCategoryId = 'tiles' | 'sanitary' | 'adhesive' | 'marble' | 'stone' | 'other'
+/** Category slug, managed by admins in the product catalogue. */
+export type ProductCategoryId = string
 
 export interface ProductCategory {
   id: ProductCategoryId
@@ -93,6 +94,7 @@ export interface Product {
   unit: string
   category: ProductCategoryId
   scheme?: string
+  image?: string
 }
 
 export type OfferState = 'active' | 'expiring' | 'upcoming'

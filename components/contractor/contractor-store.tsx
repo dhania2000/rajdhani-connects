@@ -2,6 +2,7 @@
 
 import { createContext, useCallback, useContext, useMemo } from 'react'
 import useSWR from 'swr'
+import { formatPoints } from '@/lib/format'
 import { claimGiftAction, markNotificationsReadAction, setPreferenceAction } from '@/app/contractor/actions'
 import type { ContractorAppState } from '@/lib/server/contractor-app'
 import type { Gift, NotificationPreferences, RewardClaim } from '@/lib/types'
@@ -13,6 +14,8 @@ interface ContractorStore extends ContractorAppState {
   setPreference: (key: keyof NotificationPreferences, value: boolean) => Promise<void>
   markAllNotificationsRead: () => Promise<void>
   refresh: () => Promise<unknown>
+  /** Formats a points value with the admin-configured points label. */
+  formatPts: (value: number) => string
 }
 
 const STATE_KEY = '/api/contractor/state'
@@ -76,7 +79,14 @@ export function ContractorProvider({ initialState, children }: { initialState: C
   }, [mutate, state])
 
   const value = useMemo<ContractorStore>(
-    () => ({ ...state, claimGift, setPreference, markAllNotificationsRead, refresh: () => mutate() }),
+    () => ({
+      ...state,
+      claimGift,
+      setPreference,
+      markAllNotificationsRead,
+      refresh: () => mutate(),
+      formatPts: (value: number) => formatPoints(value, state.content.pointsLabel),
+    }),
     [state, claimGift, setPreference, markAllNotificationsRead, mutate],
   )
 

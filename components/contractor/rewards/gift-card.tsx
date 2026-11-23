@@ -1,6 +1,8 @@
+'use client'
+
 import Image from 'next/image'
 import Link from 'next/link'
-import { formatPoints } from '@/lib/format'
+import { useContractor } from '@/components/contractor/contractor-store'
 import type { Gift, GiftAvailability } from '@/lib/types'
 import { cn } from '@/lib/utils'
 
@@ -11,6 +13,7 @@ export const availabilityLabel: Record<GiftAvailability, { label: string; classN
 }
 
 export function GiftCard({ gift, availablePoints }: { gift: Gift; availablePoints: number }) {
+  const { formatPts } = useContractor()
   const affordable = availablePoints >= gift.points
   const inStock = gift.availability !== 'out-of-stock'
   const avail = availabilityLabel[gift.availability]
@@ -22,7 +25,7 @@ export function GiftCard({ gift, availablePoints }: { gift: Gift; availablePoint
       </div>
       <div className="flex flex-1 flex-col gap-1 border-t border-border p-3">
         <h3 className="text-sm font-semibold text-ink">{gift.name}</h3>
-        <p className="text-[13px] font-bold text-brand">{formatPoints(gift.points)}</p>
+        <p className="text-[13px] font-bold text-brand">{formatPts(gift.points)}</p>
         <p className={cn('text-[11px] font-medium', avail.className)}>{avail.label}</p>
         <Link
           href={`/contractor/rewards/catalogue/${gift.id}`}

@@ -4,7 +4,6 @@ import { useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { AlertCircle, CheckCircle2 } from 'lucide-react'
-import { formatNumber, formatPoints } from '@/lib/format'
 import type { Gift, RewardClaim } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { ConfirmationDialog } from '@/components/contractor/shared/confirmation-dialog'
@@ -12,7 +11,7 @@ import { availabilityLabel } from './gift-card'
 import { cn } from '@/lib/utils'
 
 export function ClaimRewardView({ gift }: { gift: Gift }) {
-  const { availablePoints, claims, claimGift } = useContractor()
+  const { availablePoints, claims, claimGift, formatPts } = useContractor()
   const [open, setOpen] = useState(false)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -57,7 +56,7 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
         <h2 className="text-lg font-bold text-ink">Request submitted</h2>
         <p className="text-sm text-ink-muted">
           Your request <span className="font-semibold text-ink">{success.id}</span> for {gift.name} has been recorded.{' '}
-          {formatPoints(gift.points)} were reserved from your balance. The store will review it and contact you for handover.
+          {formatPts(gift.points)} were reserved from your balance. The store will review it and contact you for handover.
         </p>
         <div className="mt-3 grid w-full grid-cols-2 gap-2.5">
           <Link href="/contractor/rewards/catalogue" className="flex h-11 items-center justify-center rounded-lg border border-border bg-white text-sm font-semibold text-ink">
@@ -87,11 +86,11 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
         <dl className="mt-4 grid grid-cols-2 gap-2.5">
           <div className="rounded-lg bg-lavender p-3">
             <dt className="text-[11px] text-ink-muted">Points Required</dt>
-            <dd className="text-[15px] font-bold text-brand">{formatPoints(gift.points)}</dd>
+            <dd className="text-[15px] font-bold text-brand">{formatPts(gift.points)}</dd>
           </div>
           <div className="rounded-lg bg-app-bg p-3">
             <dt className="text-[11px] text-ink-muted">Available Balance</dt>
-            <dd className="text-[15px] font-bold text-ink">{formatPoints(availablePoints)}</dd>
+            <dd className="text-[15px] font-bold text-ink">{formatPts(availablePoints)}</dd>
           </div>
         </dl>
 
@@ -110,7 +109,7 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
                 ? 'This gift is currently out of stock.'
                 : hasPending
                   ? 'You already have a pending request for this gift.'
-                  : `Insufficient balance — you need ${formatNumber(shortfall)} more points.`}
+                  : `Insufficient balance — you need ${formatPts(shortfall)} more.`}
           </span>
         </div>
 
@@ -139,8 +138,8 @@ export function ClaimRewardView({ gift }: { gift: Gift }) {
         title="Confirm redemption?"
         description={
           <>
-            Redeem <strong className="text-ink">{gift.name}</strong> for {formatPoints(gift.points)}. Your balance after
-            this request will be {formatPoints(availablePoints - gift.points)}.
+            Redeem <strong className="text-ink">{gift.name}</strong> for {formatPts(gift.points)}. Your balance after
+            this request will be {formatPts(availablePoints - gift.points)}.
           </>
         }
         confirmLabel="Yes, Redeem"

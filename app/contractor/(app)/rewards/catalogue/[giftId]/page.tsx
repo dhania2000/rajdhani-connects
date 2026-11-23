@@ -1,15 +1,11 @@
 import { notFound } from 'next/navigation'
-import { gifts } from '@/lib/mock-data'
+import { getGift } from '@/lib/server/contractor-app'
 import { PageHeader } from '@/components/contractor/layout/page-header'
 import { ClaimRewardView } from '@/components/contractor/rewards/claim-reward-view'
 
-export function generateStaticParams() {
-  return gifts.map((g) => ({ giftId: g.id }))
-}
-
 export default async function ClaimRewardPage({ params }: { params: Promise<{ giftId: string }> }) {
   const { giftId } = await params
-  const gift = gifts.find((g) => g.id === giftId)
+  const gift = await getGift(decodeURIComponent(giftId))
   if (!gift) notFound()
 
   return (

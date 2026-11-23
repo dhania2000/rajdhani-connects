@@ -1,4 +1,5 @@
-import { execute, padCode, query, queryOne, withTransaction, isDuplicateKeyError } from './db'
+import { execute, isDbConfigured, padCode, query, queryOne, withTransaction, isDuplicateKeyError } from './db'
+import { DEFAULT_APP_CONTENT, getAppContent, type AppContent } from './admin-rewards'
 import { writeAudit } from './audit'
 import { getPointsBalance, InsufficientBalanceError, postLedgerEntry } from './ledger'
 import type {
@@ -13,7 +14,6 @@ import type {
   PerformancePeriod,
   Product,
   ProductCategory,
-  ProductCategoryId,
   RewardClaim,
   RewardSummary,
   RewardTransaction,
@@ -28,6 +28,27 @@ export interface ContractorAppState {
   preferences: NotificationPreferences
   unreadCount: number
   storePhone: string
+  content: ContractorAppContent
+}
+
+/** Admin-managed text and tile settings for the contractor app (Rewards Engine > App content). */
+export type ContractorAppContent = Omit<AppContent, 'activityApprovalMode' | 'storePhone'>
+
+function toAppContent(c: AppContent): ContractorAppContent {
+  const { activityApprovalMode: _mode, storePhone: _phone, ...rest } = c
+  return rest
+}
+
+/** Branding for screens shown before sign-in. Falls back to defaults when the database is unavailable. */
+export async function getPublicBranding(): Promise<{ brandName: string; storePhone: string; supportMessage: string }> {
+  const fallback = { brandName: DEFAULT_APP_CONTENT.brandName, storePhone: '', supportMessage: DEFAULT_APP_CONTENT.supportMessage }
+  if (!isDbConfigured()) return fallback
+  try {
+    const c = await getAppContent()
+    return { brandName: c.brandName, storePhone: c.storePhone, supportMessage: c.supportMessage }
+  } catch {
+    return fallback
+  }
 }
 
 const CLAIM_STATUS_MAP: Record<string, ClaimStatus> = {
@@ -71,7 +92,7 @@ export async function getContractorClaims(contractorId: number): Promise<RewardC
 }
 
 export async function getContractorState(contractorId: number): Promise<ContractorAppState> {
-  const [c, balance, claims, prefs, unread, phone] = await Promise.all([
+  const [c, balance, claims, prefs, unread, content] = await Promise.all([
     queryOne<{
       contractor_code: string
       name: string
@@ -98,7 +119,7 @@ export async function getContractorState(contractorId: number): Promise<Contract
       'SELECT COUNT(*) AS n FROM notification_recipients WHERE contractor_id = ? AND read_at IS NULL',
       [contractorId],
     ),
-    queryOne<{ config_value: string }>("SELECT config_value FROM contractor_app_configuration WHERE config_key = 'store_phone'"),
+    getAppContent(),
   ])
   if (!c) throw new Error('Contractor not found')
   return {
@@ -122,7 +143,8 @@ export async function getContractorState(contractorId: number): Promise<Contract
       sms: Boolean(prefs?.sms ?? 0),
     },
     unreadCount: unread?.n ?? 0,
-    storePhone: phone?.config_value ?? '',
+    storePhone: content.storePhone,
+    content: toAppContent(content),
   }
 }
 
@@ -394,21 +416,22 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
     query<{ slug: string; name: string; image_url: string | null }>(
       "SELECT slug, name, image_url FROM product_categories WHERE status = 'active' ORDER BY display_order, name",
     ),
-    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null }>(
-      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label
+    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null; image_url: string | null }>(
+      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label, p.image_url
        FROM products p JOIN product_categories c ON c.id = p.category_id
        WHERE p.status = 'active' AND c.status = 'active' ORDER BY c.display_order, p.display_order, p.name`,
     ),
   ])
   return {
-    categories: categories.map((c) => ({ id: c.slug as ProductCategoryId, name: c.name, image: c.image_url ?? '/placeholder.svg' })),
+    categories: categories.map((c) => ({ id: c.slug, name: c.name, image: c.image_url ?? '/placeholder.svg' })),
     products: products.map((p) => ({
       id: String(p.id),
       name: p.name,
       brand: p.brand ?? '',
       unit: p.unit ?? '',
-      category: p.slug as ProductCategoryId,
+      category: p.slug,
       scheme: p.scheme_label ?? undefined,
+      image: p.image_url ?? undefined,
     })),
   }
 }

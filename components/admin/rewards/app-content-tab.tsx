@@ -4,7 +4,7 @@ import { CheckboxInput, FormGrid, SelectInput, TextInput } from '@/components/ad
 import { Panel } from '@/components/admin/ui'
 import { saveAppContentAction } from '@/app/admin/(panel)/panel-actions'
 
-const CONTENT_FIELDS = ['brandName', 'welcomeText', 'rewardCardTitle', 'redeemButtonText', 'supportMessage', 'ledgerMessage'] as const
+const CONTENT_FIELDS = ['brandName', 'storePhone', 'welcomeText', 'rewardCardTitle', 'redeemButtonText', 'supportMessage', 'ledgerMessage'] as const
 const CONFIG_FIELDS = ['pointsLabel', 'tokensLabel', 'activityApprovalMode'] as const
 
 /** Both tabs save the same configuration record, so fields from the other tab are carried as hidden inputs. */
@@ -32,6 +32,7 @@ export async function AppContentTab({ section }: { section: 'content' | 'configu
             <FormGrid>
               <TextInput label="App display name" name="brandName" required defaultValue={c.brandName} />
               <TextInput label="Welcome message" name="welcomeText" defaultValue={c.welcomeText} />
+              <TextInput label="Store phone (Call / WhatsApp)" name="storePhone" type="tel" defaultValue={c.storePhone} placeholder="+91 98765 43210" />
               <TextInput label="Support contact message" name="supportMessage" defaultValue={c.supportMessage} className="sm:col-span-2" />
             </FormGrid>
 
@@ -55,7 +56,7 @@ export async function AppContentTab({ section }: { section: 'content' | 'configu
             </div>
 
             <h3 className="text-sm font-semibold text-ink">My Ledger (Udhar/Advance)</h3>
-            <p className="text-xs text-ink-muted">Financial ledger is not part of this phase; only the rewards ledger is live.</p>
+            <p className="text-xs text-ink-muted">Entries are managed per contractor on the contractor&apos;s detail page. Tick &quot;Show as Coming Soon&quot; to hide the ledger from contractors.</p>
             <FormGrid>
               <TextInput label="Coming soon message" name="ledgerMessage" defaultValue={c.ledgerMessage} />
               <div className="flex items-end pb-2.5">

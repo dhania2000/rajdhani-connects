@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { Check } from 'lucide-react'
-import { formatDate, formatPoints } from '@/lib/format'
+import { formatDate } from '@/lib/format'
 import type { ClaimStatus } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { EmptyState } from '@/components/contractor/shared/empty-state'
@@ -16,7 +16,7 @@ const steps: { key: ClaimStatus; label: string }[] = [
 ]
 
 export function ClaimHistoryView() {
-  const { claims } = useContractor()
+  const { claims, formatPts } = useContractor()
 
   if (claims.length === 0) {
     return (
@@ -45,7 +45,7 @@ export function ClaimHistoryView() {
                 <div>
                   <p className="text-sm font-semibold text-ink">{c.giftName}</p>
                   <p className="text-[11px] text-ink-muted">
-                    {c.id} · {formatDate(c.requestedOn)} · {formatPoints(c.points)}
+                    {c.id} · {formatDate(c.requestedOn)} · {formatPts(c.points)}
                   </p>
                 </div>
                 <StatusPill status={c.status} />
