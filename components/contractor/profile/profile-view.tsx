@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useTransition } from 'react'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone } from 'lucide-react'
 import { contractorLogoutAction } from '@/app/contractor/actions'
@@ -11,6 +10,7 @@ import type { NotificationPreferences } from '@/lib/types'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { VerifiedPartnerBadge } from '@/components/contractor/shared/verified-partner-badge'
 import { ConfirmationDialog } from '@/components/contractor/shared/confirmation-dialog'
+import { ProfilePhotoUploader } from '@/components/contractor/profile/profile-photo-uploader'
 import { cn } from '@/lib/utils'
 
 type Panel = 'none' | 'preferences' | 'help'
@@ -42,9 +42,7 @@ export function ProfileView() {
   return (
     <main className="flex flex-col gap-4 p-4">
       <section className="flex flex-col items-center rounded-xl bg-white p-5 text-center shadow-[0_1px_4px_rgba(28,35,64,0.08)]">
-        <div className="relative size-20 overflow-hidden rounded-full bg-[#dbe7f7] ring-4 ring-lavender">
-          <Image src={profile.avatarUrl} alt={`${profile.name} profile photo`} fill sizes="80px" className="object-cover" />
-        </div>
+        <ProfilePhotoUploader />
         <h2 className="mt-3 text-lg font-bold text-ink">{profile.name}</h2>
         <p className="text-xs text-ink-muted">{profile.id}</p>
         {profile.verified && (
