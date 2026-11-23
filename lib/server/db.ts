@@ -22,6 +22,9 @@ function getConnectionConfig() {
     user: process.env.DB_USERNAME,
     password: process.env.DB_PASSWORD,
     ssl: process.env.DB_SSL === 'true' ? { rejectUnauthorized: false } : undefined,
+    // Match the tables' collation (schema.sql uses utf8mb4_unicode_ci) so text parameters and
+    // literals never mix collations; plain 'utf8mb4' would use utf8mb4_general_ci.
+    charset: 'UTF8MB4_UNICODE_CI',
   }
 }
 
@@ -35,7 +38,6 @@ export function getPool(): Pool {
       dateStrings: true,
       decimalNumbers: true,
       supportBigNumbers: true,
-      charset: 'utf8mb4',
     })
     pool.on('connection', (conn) => {
       conn.query("SET time_zone = '+00:00'")

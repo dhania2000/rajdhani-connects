@@ -192,16 +192,16 @@ export async function saveTarget(admin: AdminSession, contractorId: number, id: 
   if (id) {
     const r = await execute(
       `UPDATE contractor_targets SET title = ?, target_value = ?, current_value = ?, unit = ?, status = ?,
-              achieved_at = IF(? = 'achieved', COALESCE(achieved_at, UTC_TIMESTAMP()), NULL)
+              achieved_at = IF(?, COALESCE(achieved_at, UTC_TIMESTAMP()), NULL)
        WHERE id = ? AND contractor_id = ?`,
-      [...values, status, id, contractorId],
+      [...values, status === 'achieved' ? 1 : 0, id, contractorId],
     )
     if (r.affectedRows === 0) return { ok: false, error: 'Target not found.' }
   } else {
     const r = await execute(
       `INSERT INTO contractor_targets (contractor_id, title, target_value, current_value, unit, status, achieved_at)
-       VALUES (?, ?, ?, ?, ?, ?, IF(? = 'achieved', UTC_TIMESTAMP(), NULL))`,
-      [contractorId, ...values, status],
+       VALUES (?, ?, ?, ?, ?, ?, IF(?, UTC_TIMESTAMP(), NULL))`,
+      [contractorId, ...values, status === 'achieved' ? 1 : 0],
     )
     id = r.insertId
   }
