@@ -44,6 +44,16 @@ function ProductFields({ p, categories }: { p?: ProductRow; categories: Category
         <TextInput label="Brand" name="brand" defaultValue={p?.brand ?? ''} placeholder="e.g. Kajaria" />
         <TextInput label="Unit" name="unit" defaultValue={p?.unit ?? ''} placeholder="e.g. per box (4 pcs)" />
         <TextInput label="Scheme label (optional)" name="schemeLabel" defaultValue={p?.scheme_label ?? ''} placeholder="e.g. 2x points this month" />
+        <TextInput
+          label="Reward points per unit (optional)"
+          name="rewardPoints"
+          type="number"
+          min={0}
+          step={1}
+          defaultValue={p?.reward_points ?? ''}
+          placeholder="e.g. 25"
+          hint="Shown to contractors and used to fill points when you add a sale of this product."
+        />
         <TextArea label="Description" name="description" defaultValue={p?.description ?? ''} className="sm:col-span-2" placeholder="Size, finish, features…" />
         <ImageUploadField label="Product image" name="imageUrl" fileName="imageFile" defaultValue={p?.image_url} className="sm:col-span-2" />
         <TextInput label="Display order" name="displayOrder" type="number" min={0} defaultValue={p?.display_order ?? 0} />
@@ -122,7 +132,7 @@ export async function CatalogueTab() {
         {products.length === 0 ? (
           <EmptyState title="No products yet" description={categories.length === 0 ? 'Add a category first.' : 'Add the products contractors can refer.'} />
         ) : (
-          <DataTable head={['Product', 'Category', 'Brand / Unit', 'Scheme', 'Status', 'Actions']}>
+          <DataTable head={['Product', 'Category', 'Brand / Unit', 'Points / unit', 'Scheme', 'Status', 'Actions']}>
             {products.map((p) => (
               <tr key={p.id}>
                 <Td>
@@ -136,6 +146,7 @@ export async function CatalogueTab() {
                 </Td>
                 <Td>{p.category_name}</Td>
                 <Td className="text-xs">{[p.brand, p.unit].filter(Boolean).join(' · ') || '—'}</Td>
+                <Td className="text-xs tabular-nums">{p.reward_points !== null ? `${fmtNumber(p.reward_points)} pts` : '—'}</Td>
                 <Td className="text-xs">{p.scheme_label ?? '—'}</Td>
                 <Td>
                   <StatusBadge status={p.status} />

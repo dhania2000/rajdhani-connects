@@ -543,6 +543,7 @@ CREATE TABLE IF NOT EXISTS products (
   brand         VARCHAR(80)     NULL,
   unit          VARCHAR(60)     NULL,
   scheme_label  VARCHAR(80)     NULL,
+  reward_points BIGINT UNSIGNED  NULL,
   description   TEXT            NULL,
   image_url     VARCHAR(500)    NULL,
   display_order INT             NOT NULL DEFAULT 0,
@@ -551,6 +552,46 @@ CREATE TABLE IF NOT EXISTS products (
   PRIMARY KEY (id),
   KEY idx_products_category (category_id, status, display_order),
   CONSTRAINT fk_products_category FOREIGN KEY (category_id) REFERENCES product_categories (id) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Contractor cart requests (products a contractor wants the store to supply / quote).
+CREATE TABLE IF NOT EXISTS product_enquiries (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  enquiry_code        VARCHAR(30)     NULL,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  customer_name       VARCHAR(150)    NULL,
+  customer_mobile     VARCHAR(20)     NULL,
+  note                VARCHAR(1000)   NULL,
+  estimated_points    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  status              ENUM('new','contacted','completed','cancelled') NOT NULL DEFAULT 'new',
+  admin_note          VARCHAR(500)    NULL,
+  idempotency_key     VARCHAR(64)     NOT NULL,
+  updated_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_enquiry_code (enquiry_code),
+  UNIQUE KEY uq_enquiry_idempotency (idempotency_key),
+  KEY idx_enquiries_status (status, created_at),
+  KEY idx_enquiries_contractor (contractor_id, created_at),
+  CONSTRAINT fk_enquiries_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_enquiries_admin FOREIGN KEY (updated_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS product_enquiry_items (
+  id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  enquiry_id      BIGINT UNSIGNED NOT NULL,
+  product_id      BIGINT UNSIGNED NULL,
+  product_name    VARCHAR(150)    NOT NULL,
+  brand           VARCHAR(80)     NULL,
+  unit            VARCHAR(60)     NULL,
+  category_name   VARCHAR(80)     NULL,
+  quantity        DECIMAL(12,2)   NOT NULL,
+  points_per_unit BIGINT UNSIGNED NULL,
+  PRIMARY KEY (id),
+  KEY idx_enquiry_items (enquiry_id),
+  CONSTRAINT fk_enquiry_items_enquiry FOREIGN KEY (enquiry_id) REFERENCES product_enquiries (id) ON DELETE CASCADE,
+  CONSTRAINT fk_enquiry_items_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS contractor_app_configuration (

@@ -100,6 +100,20 @@ export interface Product {
   scheme?: string
   image?: string
   description?: string
+  /** Reward points per unit, when the admin set them. */
+  points?: number
+}
+
+export type EnquiryStatus = 'new' | 'contacted' | 'completed' | 'cancelled'
+
+export interface CartRequest {
+  id: string
+  createdOn: string
+  status: EnquiryStatus
+  customerName?: string
+  estimatedPoints: number
+  adminNote?: string
+  items: { name: string; unit?: string; quantity: number; pointsPerUnit?: number }[]
 }
 
 export type OfferState = 'active' | 'expiring' | 'upcoming'

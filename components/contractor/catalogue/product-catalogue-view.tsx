@@ -5,10 +5,13 @@ import Image from 'next/image'
 import { Sparkles } from 'lucide-react'
 import type { Product, ProductCategory, ProductCategoryId } from '@/lib/types'
 import { EmptyState } from '@/components/contractor/shared/empty-state'
+import { useContractor } from '@/components/contractor/contractor-store'
+import { AddToCartButton, CartBar } from '@/components/contractor/cart/cart-controls'
 import { SectionTitle } from '@/components/contractor/shared/section-title'
 import { cn } from '@/lib/utils'
 
 export function ProductCatalogueView({ categories, products }: { categories: ProductCategory[]; products: Product[] }) {
+  const { formatPts } = useContractor()
   const [category, setCategory] = useState<ProductCategoryId>(categories[0]?.id ?? '')
   const active = categories.find((c) => c.id === category) ?? categories[0]
   const list = products.filter((p) => p.category === active?.id)
@@ -63,6 +66,17 @@ export function ProductCatalogueView({ categories, products }: { categories: Pro
                 <p className="text-sm font-semibold text-ink">{p.name}</p>
                 <p className="text-[12px] text-ink-muted">{[p.brand, p.unit].filter(Boolean).join(' · ')}</p>
                 {p.description && <p className="mt-1 text-[12px] leading-snug whitespace-pre-line text-ink-muted">{p.description}</p>}
+                <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+                  {p.points ? (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[11px] font-bold text-[#047857]">
+                      Earn {formatPts(p.points)}
+                      {p.unit ? ` / ${p.unit.replace(/^per\s+/i, '')}` : ''}
+                    </span>
+                  ) : (
+                    <span />
+                  )}
+                  <AddToCartButton product={p} />
+                </div>
                 {p.scheme && (
                   <span className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-lavender px-2 py-0.5 text-[11px] font-semibold text-brand">
                     <Sparkles className="size-3" aria-hidden="true" />
@@ -73,8 +87,11 @@ export function ProductCatalogueView({ categories, products }: { categories: Pro
             </li>
           ))}
         </ul>
-        <p className="mt-3 text-center text-[11px] text-ink-muted">Reference catalogue only. Contact the store for pricing.</p>
+        <p className="mt-3 text-center text-[11px] text-ink-muted">
+          Add products to your cart and send them to the store. Points are credited when the sale is recorded.
+        </p>
       </section>
+      <CartBar />
     </main>
   )
 }

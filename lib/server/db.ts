@@ -1,3 +1,4 @@
+import { runCatalogueSeeds } from './catalogue-seed'
 import mysql, { type Pool, type PoolConnection, type ResultSetHeader, type RowDataPacket } from 'mysql2/promise'
 
 export type Conn = Pool | PoolConnection
@@ -74,7 +75,57 @@ async function runMigrations() {
   if (productDescription.length === 0) {
     await getPool().query('ALTER TABLE products ADD COLUMN description TEXT NULL AFTER scheme_label')
   }
+  // Optional reward points per unit for a catalogue product.
+  const [productPoints] = await getPool().query<RowDataPacket[]>(
+    "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'products' AND column_name = 'reward_points'",
+  )
+  if (productPoints.length === 0) {
+    await getPool().query('ALTER TABLE products ADD COLUMN reward_points BIGINT UNSIGNED NULL AFTER scheme_label')
+  }
+  await getPool().query(ENQUIRIES_DDL)
+  await getPool().query(ENQUIRY_ITEMS_DDL)
+  await runCatalogueSeeds(getPool())
 }
+
+// Kept in sync with database/schema.sql (contractor cart requests).
+const ENQUIRIES_DDL = `CREATE TABLE IF NOT EXISTS product_enquiries (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  enquiry_code        VARCHAR(30)     NULL,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  customer_name       VARCHAR(150)    NULL,
+  customer_mobile     VARCHAR(20)     NULL,
+  note                VARCHAR(1000)   NULL,
+  estimated_points    BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  status              ENUM('new','contacted','completed','cancelled') NOT NULL DEFAULT 'new',
+  admin_note          VARCHAR(500)    NULL,
+  idempotency_key     VARCHAR(64)     NOT NULL,
+  updated_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  UNIQUE KEY uq_enquiry_code (enquiry_code),
+  UNIQUE KEY uq_enquiry_idempotency (idempotency_key),
+  KEY idx_enquiries_status (status, created_at),
+  KEY idx_enquiries_contractor (contractor_id, created_at),
+  CONSTRAINT fk_enquiries_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_enquiries_admin FOREIGN KEY (updated_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
+
+const ENQUIRY_ITEMS_DDL = `CREATE TABLE IF NOT EXISTS product_enquiry_items (
+  id              BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  enquiry_id      BIGINT UNSIGNED NOT NULL,
+  product_id      BIGINT UNSIGNED NULL,
+  product_name    VARCHAR(150)    NOT NULL,
+  brand           VARCHAR(80)     NULL,
+  unit            VARCHAR(60)     NULL,
+  category_name   VARCHAR(80)     NULL,
+  quantity        DECIMAL(12,2)   NOT NULL,
+  points_per_unit BIGINT UNSIGNED NULL,
+  PRIMARY KEY (id),
+  KEY idx_enquiry_items (enquiry_id),
+  CONSTRAINT fk_enquiry_items_enquiry FOREIGN KEY (enquiry_id) REFERENCES product_enquiries (id) ON DELETE CASCADE,
+  CONSTRAINT fk_enquiry_items_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 // Kept in sync with database/schema.sql so existing databases gain the table without a manual import.
 const ACCOUNT_ENTRIES_DDL = `CREATE TABLE IF NOT EXISTS contractor_account_entries (
@@ -112,6 +163,7 @@ export function ensureSchema() {
     } finally {
       await conn.end()
     }
+    await runCatalogueSeeds(getPool())
   })().catch((error) => {
     globalForSchema.rtsSchema = undefined
     throw error

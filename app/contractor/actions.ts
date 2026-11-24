@@ -19,6 +19,7 @@ import {
   type ClaimResult,
 } from '@/lib/server/contractor-app'
 import { setContractorPhoto } from '@/lib/server/contractors'
+import { cartRequestSchema, createCartRequest } from '@/lib/server/enquiries'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import type { NotificationPreferences, PerformanceMetrics } from '@/lib/types'
 
@@ -111,4 +112,13 @@ export async function getPerformanceAction(period: string, from?: string, to?: s
   if (!parsed.success) return { salesBrought: 0, rewardsEarned: 0 }
   const { period: p, from: f, to: t } = parsed.data
   return getPerformance(session.contractorId, p, f, t)
+}
+
+export async function submitCartRequestAction(input: unknown): Promise<{ ok: true; code: string } | { ok: false; error: string }> {
+  const session = await requireContractor()
+  const parsed = cartRequestSchema.safeParse(input)
+  if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? 'Check your cart and try again.' }
+  const result = await createCartRequest(session.contractorId, parsed.data)
+  if (result.ok) revalidatePath('/contractor/cart')
+  return result
 }

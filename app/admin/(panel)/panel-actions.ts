@@ -4,6 +4,8 @@ import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 import { requireAdmin } from '@/lib/server/auth'
 import { InsufficientBalanceError } from '@/lib/server/ledger'
+import { ENQUIRY_STATUSES, setCartRequestStatus } from '@/lib/server/enquiries'
+import type { EnquiryStatus } from '@/lib/types'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import {
   adjustContractorPoints,
@@ -407,4 +409,15 @@ export async function saveAccountEntryAction(_: AdminActionState, fd: FormData):
   if ('error' in parsed) return { error: parsed.error }
   const id = idOf(fd)
   return done(await saveAccountEntry(admin, contractorId, id, parsed.data), id ? 'Entry updated.' : 'Entry added.')
+}
+
+// Contractor cart requests ------------------------------------------------------
+
+export async function cartRequestStatusAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  const status = String(fd.get('status')) as EnquiryStatus
+  if (!id || !ENQUIRY_STATUSES.includes(status)) return { error: 'Choose a status.' }
+  const note = String(fd.get('note') ?? '').trim().slice(0, 500) || null
+  return done(await setCartRequestStatus(admin, id, status, note), 'Request updated. The contractor has been notified.')
 }

@@ -40,6 +40,7 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
               <ProductPicker
                 products={products}
                 fill={{ productRef: 'name', productCategory: 'category', brand: 'brand', unit: 'unit', notes: 'description' }}
+                points={{ field: 'manualPoints', quantityField: 'quantity' }}
               />
               <FormGrid>
                 <SelectInput label="Contractor" name="contractorId" required options={contractors.map((c) => ({ value: c.id, label: `${c.name} (${c.mobile})` }))} />
