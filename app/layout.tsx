@@ -10,6 +10,8 @@ export const metadata: Metadata = {
   description:
     'Contractor rewards app for Rajdhani Connects partners: track referred sales, earn rewards, redeem gifts and view offers.',
   applicationName: 'Rajdhani Contractor Rewards',
+  // Home-screen behaviour on iPhone (Share > Add to Home Screen).
+  appleWebApp: { capable: true, title: 'Rajdhani Connects', statusBarStyle: 'black-translucent' },
   // Favicon and home-screen icon come from app/icon.svg and app/apple-icon.tsx.
 }
 

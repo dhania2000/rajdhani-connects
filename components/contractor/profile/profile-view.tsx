@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
-import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone } from 'lucide-react'
+import { Bell, ChevronRight, HelpCircle, KeyRound, LogOut, MessageCircle, Phone, Smartphone } from 'lucide-react'
 import { contractorLogoutAction } from '@/app/contractor/actions'
 import { formatDate } from '@/lib/format'
 import type { NotificationPreferences } from '@/lib/types'
@@ -11,6 +11,7 @@ import { VerifiedPartnerBadge } from '@/components/contractor/shared/verified-pa
 import { ConfirmationDialog } from '@/components/contractor/shared/confirmation-dialog'
 import { ProfilePhotoUploader } from '@/components/contractor/profile/profile-photo-uploader'
 import { cn } from '@/lib/utils'
+import { SHOW_INSTALL_EVENT } from '@/components/contractor/layout/install-prompt'
 
 type Panel = 'none' | 'preferences' | 'help'
 
@@ -105,6 +106,7 @@ export function ProfileView() {
             )}
           </div>
         )}
+        <MenuRow icon={Smartphone} label="Add app to home screen" onClick={() => window.dispatchEvent(new Event(SHOW_INSTALL_EVENT))} />
         <MenuRow icon={LogOut} label="Logout" danger onClick={() => setLoggingOut(true)} />
       </section>
 
