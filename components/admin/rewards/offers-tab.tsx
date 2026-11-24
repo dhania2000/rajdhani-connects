@@ -24,8 +24,15 @@ function OfferFields({ o }: { o?: Offer }) {
           defaultValue={o?.reward_type ?? 'gift'}
           options={['points', 'tokens', 'gift', 'multiplier', 'info'].map((v) => ({ value: v, label: v[0].toUpperCase() + v.slice(1) }))}
         />
-        <TextInput label="Reward value" name="rewardValue" type="number" min={0} defaultValue={o?.reward_value ?? ''} />
-        <TextInput label="Target value" name="targetValue" type="number" min={0} step="any" defaultValue={o?.target_value ?? ''} />
+        <TextInput
+          label="Reward value"
+          name="rewardValue"
+          type="number"
+          min={0}
+          defaultValue={o?.reward_value ?? ''}
+          hint="Points or tokens given, or the multiplier (e.g. 2). For a gift, name it in the description."
+        />
+        <TextInput label="Target value" hint="Shown to contractors with their progress." name="targetValue" type="number" min={0} step="any" defaultValue={o?.target_value ?? ''} />
         <SelectInput
           label="Target measured in"
           name="targetUnit"

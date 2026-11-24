@@ -10,6 +10,7 @@ import type {
   GiftAvailability,
   NotificationPreferences,
   Offer,
+  OfferTargetUnit,
   PerformanceMetrics,
   PerformancePeriod,
   Product,
@@ -444,10 +445,46 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
   }
 }
 
+/** A contractor's progress towards an offer target, counted only within the offer's own dates. */
+async function offerProgress(contractorId: number, unit: OfferTargetUnit, start: string, end: string): Promise<number> {
+  if (unit === 'amount' || unit === 'quantity') {
+    const column = unit === 'amount' ? 'eligible_amount' : 'quantity'
+    const row = await queryOne<{ total: number }>(
+      `SELECT COALESCE(SUM(${column}), 0) AS total FROM reward_activities
+       WHERE contractor_id = ? AND status = 'approved' AND activity_date BETWEEN ? AND ?`,
+      [contractorId, start, end],
+    )
+    return Number(row?.total ?? 0)
+  }
+  const row = await queryOne<{ total: number }>(
+    `SELECT COALESCE(SUM(amount), 0) AS total FROM reward_transactions
+     WHERE contractor_id = ? AND currency = ? AND entry_type IN ('earn','manual_credit')
+       AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)`,
+    [contractorId, unit, start, end],
+  )
+  return Number(row?.total ?? 0)
+}
+
 export async function getOffersAndTargets(contractorId: number): Promise<{ offers: Offer[]; targets: SchemeTarget[] }> {
   const [offers, targets] = await Promise.all([
-    query<{ id: number; title: string; description: string | null; start_date: string; end_date: string; multiplier: number | null }>(
-      `SELECT o.id, o.title, o.description, o.start_date, o.end_date, o.multiplier
+    query<{
+      id: number
+      title: string
+      description: string | null
+      start_date: string
+      end_date: string
+      multiplier: number | null
+      reward_type: Offer['rewardType']
+      reward_value: number | null
+      target_value: number | null
+      target_unit: OfferTargetUnit | null
+      show_progress: number
+      is_featured: number
+      banner_url: string | null
+      terms: string | null
+    }>(
+      `SELECT o.id, o.title, o.description, o.start_date, o.end_date, o.multiplier, o.reward_type, o.reward_value,
+              o.target_value, o.target_unit, o.show_progress, o.is_featured, o.banner_url, o.terms
        FROM offers o
        WHERE o.status = 'published' AND o.end_date >= UTC_DATE()
          AND (o.audience = 'all' OR EXISTS (SELECT 1 FROM offer_contractors oc WHERE oc.offer_id = o.id AND oc.contractor_id = ?))
@@ -462,15 +499,35 @@ export async function getOffersAndTargets(contractorId: number): Promise<{ offer
   ])
   const today = new Date().toISOString().slice(0, 10)
   const soon = new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)
+  const progress = await Promise.all(
+    offers.map((o) =>
+      o.target_value && o.target_unit && o.show_progress
+        ? offerProgress(contractorId, o.target_unit, toDate(o.start_date), toDate(o.end_date))
+        : Promise.resolve(undefined),
+    ),
+  )
   return {
-    offers: offers.map((o) => ({
-      id: String(o.id),
-      title: o.title,
-      description: o.description ?? '',
-      state: toDate(o.start_date) > today ? 'upcoming' : toDate(o.end_date) <= soon ? 'expiring' : 'active',
-      validTill: toDate(o.end_date),
-      multiplier: o.multiplier ? Number(o.multiplier) : undefined,
-    })),
+    offers: offers.map((o, i) => {
+      const multiplier = o.multiplier ? Number(o.multiplier) : o.reward_type === 'multiplier' && o.reward_value ? Number(o.reward_value) : undefined
+      return {
+        id: String(o.id),
+        title: o.title,
+        description: o.description ?? '',
+        state: toDate(o.start_date) > today ? 'upcoming' : toDate(o.end_date) <= soon ? 'expiring' : 'active',
+        startDate: toDate(o.start_date),
+        validTill: toDate(o.end_date),
+        multiplier,
+        rewardType: o.reward_type,
+        rewardValue: o.reward_value ? Number(o.reward_value) : undefined,
+        bannerUrl: o.banner_url ?? undefined,
+        terms: o.terms ?? undefined,
+        featured: Boolean(Number(o.is_featured)),
+        target:
+          o.target_value && o.target_unit
+            ? { value: Number(o.target_value), unit: o.target_unit, current: progress[i] }
+            : undefined,
+      }
+    }),
     targets: targets.map((t) => ({
       id: String(t.id),
       title: t.title,
