@@ -37,6 +37,11 @@ export const productSchema = z.object({
   brand: optionalText(80),
   unit: optionalText(60),
   schemeLabel: optionalText(80),
+  /** Optional points a contractor earns per unit of this product. */
+  rewardPoints: z.preprocess(
+    (v) => (v === '' || v === null || v === undefined ? null : v),
+    z.coerce.number().int('Whole points only.').min(0, 'Points cannot be negative.').max(10_000_000).nullable(),
+  ),
   description: optionalText(2000),
   imageUrl: optionalText(500),
   displayOrder: z.coerce.number().int().min(0).max(9999).default(0),
@@ -70,6 +75,7 @@ export interface ProductRow {
   brand: string | null
   unit: string | null
   scheme_label: string | null
+  reward_points: number | null
   description: string | null
   image_url: string | null
   display_order: number
@@ -84,11 +90,21 @@ export interface ProductOption {
   unit: string
   category: string
   description: string
+  /** Reward points per unit, if the admin set them. */
+  points: number | null
 }
 
 export async function listProductOptions(): Promise<ProductOption[]> {
-  const rows = await query<{ id: number; name: string; brand: string | null; unit: string | null; category: string; description: string | null }>(
-    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description
+  const rows = await query<{
+    id: number
+    name: string
+    brand: string | null
+    unit: string | null
+    category: string
+    description: string | null
+    reward_points: number | null
+  }>(
+    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description, p.reward_points
      FROM products p JOIN product_categories c ON c.id = p.category_id
      WHERE p.status = 'active' ORDER BY c.display_order, c.name, p.display_order, p.name LIMIT 2000`,
   )
@@ -99,6 +115,7 @@ export async function listProductOptions(): Promise<ProductOption[]> {
     unit: r.unit ?? '',
     category: r.category,
     description: r.description ?? '',
+    points: r.reward_points === null ? null : Number(r.reward_points),
   }))
 }
 
@@ -112,7 +129,7 @@ export function listCategories() {
 
 export function listProducts() {
   return query<ProductRow>(
-    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.description, p.image_url, p.display_order, p.status
+    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.reward_points, p.description, p.image_url, p.display_order, p.status
      FROM products p JOIN product_categories c ON c.id = p.category_id
      ORDER BY c.display_order, c.name, p.display_order, p.name`,
   )
@@ -139,16 +156,16 @@ export async function saveCategory(admin: AdminSession, id: number | null, input
 export async function saveProduct(admin: AdminSession, id: number | null, input: z.infer<typeof productSchema>): Promise<Result> {
   const category = await queryOne<{ id: number }>('SELECT id FROM product_categories WHERE id = ?', [input.categoryId])
   if (!category) return { ok: false, error: 'Choose a valid category.' }
-  const values = [input.categoryId, input.name, input.brand, input.unit, input.schemeLabel, input.description, input.imageUrl, input.displayOrder, input.status]
+  const values = [input.categoryId, input.name, input.brand, input.unit, input.schemeLabel, input.rewardPoints, input.description, input.imageUrl, input.displayOrder, input.status]
   if (id) {
     const r = await execute(
-      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, description = ?, image_url = ?, display_order = ?, status = ? WHERE id = ?',
+      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, reward_points = ?, description = ?, image_url = ?, display_order = ?, status = ? WHERE id = ?',
       [...values, id],
     )
     if (r.affectedRows === 0) return { ok: false, error: 'Product not found.' }
   } else {
     const r = await execute(
-      'INSERT INTO products (category_id, name, brand, unit, scheme_label, description, image_url, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO products (category_id, name, brand, unit, scheme_label, reward_points, description, image_url, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       values,
     )
     id = r.insertId

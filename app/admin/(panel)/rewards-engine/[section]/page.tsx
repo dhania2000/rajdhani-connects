@@ -6,6 +6,7 @@ import { ActivitiesTab } from '@/components/admin/rewards/activities-tab'
 import { PointsTab } from '@/components/admin/rewards/points-tab'
 import { GiftsTab } from '@/components/admin/rewards/gifts-tab'
 import { CatalogueTab } from '@/components/admin/rewards/catalogue-tab'
+import { CartRequestsTab } from '@/components/admin/rewards/cart-requests-tab'
 import { RedemptionsTab } from '@/components/admin/rewards/redemptions-tab'
 import { OffersTab } from '@/components/admin/rewards/offers-tab'
 import { AppContentTab } from '@/components/admin/rewards/app-content-tab'
@@ -35,6 +36,7 @@ export default async function RewardsSectionPage({
       {section.slug === 'activities' && <ActivitiesTab status={sp.status} q={sp.q} />}
       {section.slug === 'points-tokens' && <PointsTab />}
       {section.slug === 'catalogue' && <CatalogueTab />}
+      {section.slug === 'cart-requests' && <CartRequestsTab status={sp.status} />}
       {section.slug === 'gifts' && <GiftsTab />}
       {section.slug === 'redemptions' && <RedemptionsTab status={sp.status} />}
       {section.slug === 'offers' && <OffersTab />}

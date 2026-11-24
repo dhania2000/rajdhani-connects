@@ -756,7 +756,8 @@ export async function getAdminAlertCount() {
   const row = await queryOne<{ total: number }>(
     `SELECT
        (SELECT COUNT(*) FROM reward_activities WHERE status = 'submitted') +
-       (SELECT COUNT(*) FROM redemption_requests WHERE status = 'requested') AS total`,
+       (SELECT COUNT(*) FROM redemption_requests WHERE status = 'requested') +
+       (SELECT COUNT(*) FROM product_enquiries WHERE status = 'new') AS total`,
   )
   return Number(row?.total ?? 0)
 }
