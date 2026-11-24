@@ -104,13 +104,30 @@ export interface Product {
 
 export type OfferState = 'active' | 'expiring' | 'upcoming'
 
+export type OfferRewardType = 'points' | 'tokens' | 'gift' | 'multiplier' | 'info'
+export type OfferTargetUnit = 'points' | 'tokens' | 'amount' | 'quantity'
+
 export interface Offer {
   id: string
   title: string
   description: string
   state: OfferState
+  startDate: string
   validTill: string
   multiplier?: number
+  rewardType: OfferRewardType
+  /** Points / tokens awarded (or the multiplier, for multiplier offers). */
+  rewardValue?: number
+  bannerUrl?: string
+  terms?: string
+  featured: boolean
+  /** Present when the admin set a target for this offer. */
+  target?: {
+    value: number
+    unit: OfferTargetUnit
+    /** The contractor's progress within the offer dates; only when the admin enabled "Show progress". */
+    current?: number
+  }
 }
 
 export interface SchemeTarget {
