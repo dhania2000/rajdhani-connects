@@ -354,22 +354,64 @@ export async function getSales(contractorId: number): Promise<SaleRecord[]> {
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t
                       WHERE t.activity_id = a.id AND t.entry_type IN ('earn','earn_pending')), 0) AS reward
      FROM reward_activities a
-     WHERE a.contractor_id = ? AND a.status IN ('submitted','approved','rejected')
+     WHERE a.contractor_id = ? AND a.status IN ('submitted','approved','rejected','reversed')
      ORDER BY a.activity_date DESC, a.id DESC LIMIT 200`,
     [contractorId],
   )
-  return rows.map((r) => ({
-    id: r.activity_code ?? String(r.id),
-    reference: r.reference_number,
-    customer: r.customer_name ?? '-',
-    date: toDate(r.activity_date),
-    product: [r.brand, r.product_ref ?? r.product_category].filter(Boolean).join(' ') || '-',
-    description: r.notes ?? undefined,
-    quantity: Number(r.quantity) > 0 ? `${Number(r.quantity).toLocaleString('en-IN')}${r.unit ? ` ${r.unit}` : ''}` : undefined,
-    amount: Number(r.eligible_amount),
-    status: r.status === 'approved' ? 'approved' : r.status === 'rejected' ? 'rejected' : 'pending',
-    reward: r.status === 'submitted' && r.manual_points !== null ? Number(r.manual_points) : Number(r.reward),
-  }))
+  const returns = rows.length
+    ? await query<{ id: number; activity_id: number; quantity: number; amount: number; points: number; reason: string; created_at: string }>(
+        `SELECT id, activity_id, quantity, amount, points, reason, created_at FROM sale_returns
+         WHERE activity_id IN (${rows.map(() => '?').join(',')}) ORDER BY id`,
+        rows.map((r) => r.id),
+      )
+    : []
+  // "per 20 kg bag" reads as "5 × 20 kg bag" after a quantity.
+  const fmtQty = (q: number, unit: string | null) => `${q.toLocaleString('en-IN')}${unit ? ` × ${unit.replace(/^per\s+/i, '')}` : ''}`
+
+  const records: SaleRecord[] = []
+  for (const r of rows) {
+    const own = returns.filter((x) => x.activity_id === r.id)
+    const returnedQty = own.reduce((n, x) => n + Number(x.quantity), 0)
+    const returnedAmount = own.reduce((n, x) => n + Number(x.amount), 0)
+    const returnedPoints = own.reduce((n, x) => n + Number(x.points), 0)
+    const product = [r.brand, r.product_ref ?? r.product_category].filter(Boolean).join(' ') || '-'
+    const netQty = Number(r.quantity) - returnedQty
+    records.push({
+      id: r.activity_code ?? String(r.id),
+      reference: r.reference_number,
+      customer: r.customer_name ?? '-',
+      date: toDate(r.activity_date),
+      product,
+      description: r.notes ?? undefined,
+      quantity: netQty > 0 ? fmtQty(netQty, r.unit) : undefined,
+      // Returned material is shown separately (as rejected), so the sale keeps only what was kept.
+      amount: Math.max(0, Number(r.eligible_amount) - returnedAmount),
+      // Reversed (cancelled) sales count as rejected; their points were taken back.
+      status: r.status === 'approved' ? 'approved' : r.status === 'rejected' || r.status === 'reversed' ? 'rejected' : 'pending',
+      reward:
+        r.status === 'submitted' && r.manual_points !== null
+          ? Number(r.manual_points)
+          : r.status === 'reversed'
+            ? 0
+            : Math.max(0, Number(r.reward) - returnedPoints),
+    })
+    for (const [i, x] of own.entries()) {
+      records.push({
+        id: `${r.activity_code ?? r.id}-R${i + 1}`,
+        reference: r.reference_number,
+        customer: r.customer_name ?? '-',
+        date: toDate(x.created_at),
+        product: `Returned: ${product}`,
+        description: x.reason,
+        quantity: Number(x.quantity) > 0 ? fmtQty(Number(x.quantity), r.unit) : undefined,
+        amount: Number(x.amount),
+        status: 'rejected',
+        reward: -Number(x.points),
+        isReturn: true,
+      })
+    }
+  }
+  return records.sort((a, b) => b.date.localeCompare(a.date))
 }
 
 function periodRange(period: PerformancePeriod, from?: string, to?: string): [string, string] {
@@ -405,13 +447,14 @@ export async function getPerformance(
   const [start, end] = periodRange(period, from, to)
   const [sales, rewards] = await Promise.all([
     queryOne<{ total: number }>(
-      `SELECT COALESCE(SUM(eligible_amount), 0) AS total FROM reward_activities
-       WHERE contractor_id = ? AND status = 'approved' AND activity_date BETWEEN ? AND ?`,
+      `SELECT COALESCE(SUM(a.eligible_amount - COALESCE((SELECT SUM(r.amount) FROM sale_returns r WHERE r.activity_id = a.id), 0)), 0) AS total
+       FROM reward_activities a
+       WHERE a.contractor_id = ? AND a.status = 'approved' AND a.activity_date BETWEEN ? AND ?`,
       [contractorId, start, end],
     ),
     queryOne<{ total: number }>(
-      `SELECT COALESCE(SUM(amount), 0) AS total FROM reward_transactions
-       WHERE contractor_id = ? AND currency = 'points' AND entry_type IN ('earn','manual_credit','pending_confirm')
+      `SELECT COALESCE(SUM(CASE WHEN entry_type = 'reversal' THEN -amount ELSE amount END), 0) AS total FROM reward_transactions
+       WHERE contractor_id = ? AND currency = 'points' AND entry_type IN ('earn','manual_credit','pending_confirm','reversal')
          AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)`,
       [contractorId, start, end],
     ),
@@ -449,17 +492,18 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
 /** A contractor's progress towards an offer target, counted only within the offer's own dates. */
 async function offerProgress(contractorId: number, unit: OfferTargetUnit, start: string, end: string): Promise<number> {
   if (unit === 'amount' || unit === 'quantity') {
-    const column = unit === 'amount' ? 'eligible_amount' : 'quantity'
+    const [column, returned] = unit === 'amount' ? ['eligible_amount', 'amount'] : ['quantity', 'quantity']
     const row = await queryOne<{ total: number }>(
-      `SELECT COALESCE(SUM(${column}), 0) AS total FROM reward_activities
-       WHERE contractor_id = ? AND status = 'approved' AND activity_date BETWEEN ? AND ?`,
+      `SELECT COALESCE(SUM(a.${column} - COALESCE((SELECT SUM(r.${returned}) FROM sale_returns r WHERE r.activity_id = a.id), 0)), 0) AS total
+       FROM reward_activities a
+       WHERE a.contractor_id = ? AND a.status = 'approved' AND a.activity_date BETWEEN ? AND ?`,
       [contractorId, start, end],
     )
     return Number(row?.total ?? 0)
   }
   const row = await queryOne<{ total: number }>(
-    `SELECT COALESCE(SUM(amount), 0) AS total FROM reward_transactions
-     WHERE contractor_id = ? AND currency = ? AND entry_type IN ('earn','manual_credit')
+    `SELECT COALESCE(SUM(CASE WHEN entry_type = 'reversal' THEN -amount ELSE amount END), 0) AS total FROM reward_transactions
+     WHERE contractor_id = ? AND currency = ? AND entry_type IN ('earn','manual_credit','reversal')
        AND created_at >= ? AND created_at < DATE_ADD(?, INTERVAL 1 DAY)`,
     [contractorId, unit, start, end],
   )

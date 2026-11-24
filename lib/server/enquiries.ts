@@ -1,7 +1,8 @@
 import { z } from 'zod'
 import { execute, isDuplicateKeyError, padCode, query, queryOne, withTransaction } from './db'
 import { writeAudit } from './audit'
-import { notifyContractor } from './rewards-engine'
+import { notifyContractor, recordApprovedSale, SaleError } from './rewards-engine'
+import type { PoolConnection } from 'mysql2/promise'
 import type { AdminSession } from './auth'
 import type { CartRequest, EnquiryStatus } from '@/lib/types'
 
@@ -93,7 +94,10 @@ interface EnquiryRow {
 }
 
 interface ItemRow {
+  id: number
   enquiry_id: number
+  amount: number | null
+  activity_id: number | null
   product_name: string
   brand: string | null
   unit: string | null
@@ -105,7 +109,7 @@ interface ItemRow {
 async function itemsFor(ids: number[]) {
   if (ids.length === 0) return new Map<number, ItemRow[]>()
   const rows = await query<ItemRow>(
-    `SELECT enquiry_id, product_name, brand, unit, category_name, quantity, points_per_unit
+    `SELECT id, enquiry_id, product_name, brand, unit, category_name, quantity, points_per_unit, amount, activity_id
      FROM product_enquiry_items WHERE enquiry_id IN (${ids.map(() => '?').join(',')}) ORDER BY id`,
     ids,
   )
@@ -168,6 +172,8 @@ export async function setCartRequestStatus(admin: AdminSession, id: number, stat
       conn,
     )
     if (!e) return { ok: false as const, error: 'Request not found.' }
+    if (e.status === 'completed') return { ok: false as const, error: 'This request is completed and its sales are recorded. Use Sales to record returns.' }
+    if (status === 'completed') return { ok: false as const, error: 'Use "Complete & add to sales" to complete a request.' }
     await execute(
       'UPDATE product_enquiries SET status = ?, admin_note = COALESCE(?, admin_note), updated_by_admin_id = ? WHERE id = ?',
       [status, note, admin.adminId, id],
@@ -195,4 +201,122 @@ export async function setCartRequestStatus(admin: AdminSession, id: number, stat
 export async function countNewCartRequests() {
   const r = await queryOne<{ n: number }>("SELECT COUNT(*) AS n FROM product_enquiries WHERE status = 'new'")
   return Number(r?.n ?? 0)
+}
+
+// ---------------------------------------------------------------------------
+// Admin edits and completion
+// ---------------------------------------------------------------------------
+
+export interface CartLineEdit {
+  itemId: number
+  /** 0 removes the item from the request. */
+  quantity: number
+  /** Optional sale amount in rupees for this line. */
+  amount: number | null
+}
+
+async function applyLineEdits(conn: PoolConnection, enquiryId: number, lines: CartLineEdit[]) {
+  for (const l of lines) {
+    if (l.quantity <= 0) {
+      await execute('DELETE FROM product_enquiry_items WHERE id = ? AND enquiry_id = ?', [l.itemId, enquiryId], conn)
+    } else {
+      await execute('UPDATE product_enquiry_items SET quantity = ?, amount = ? WHERE id = ? AND enquiry_id = ?', [l.quantity, l.amount, l.itemId, enquiryId], conn)
+    }
+  }
+  const items = await query<ItemRow>(
+    `SELECT id, enquiry_id, product_name, brand, unit, category_name, quantity, points_per_unit, amount, activity_id
+     FROM product_enquiry_items WHERE enquiry_id = ? ORDER BY id`,
+    [enquiryId],
+    conn,
+  )
+  const estimated = Math.round(items.reduce((n, i) => n + Number(i.points_per_unit ?? 0) * Number(i.quantity), 0))
+  await execute('UPDATE product_enquiries SET estimated_points = ? WHERE id = ?', [estimated, enquiryId], conn)
+  return items
+}
+
+async function lockOpenRequest(conn: PoolConnection, id: number) {
+  const e = await queryOne<{ id: number; contractor_id: number; enquiry_code: string; status: EnquiryStatus; customer_name: string | null }>(
+    'SELECT id, contractor_id, enquiry_code, status, customer_name FROM product_enquiries WHERE id = ? FOR UPDATE',
+    [id],
+    conn,
+  )
+  if (!e) return { error: 'Request not found.' as const }
+  if (e.status === 'completed') return { error: 'This request is already completed; its sales are recorded.' as const }
+  if (e.status === 'cancelled') return { error: 'This request is cancelled.' as const }
+  return { e }
+}
+
+/** Saves quantity / amount changes (and removals) on an open request. */
+export async function saveCartRequestItems(admin: AdminSession, id: number, lines: CartLineEdit[], note: string | null) {
+  return withTransaction(async (conn) => {
+    const locked = await lockOpenRequest(conn, id)
+    if ('error' in locked) return { ok: false as const, error: locked.error }
+    const items = await applyLineEdits(conn, id, lines)
+    if (items.length === 0) return { ok: false as const, error: 'A request needs at least one product. Cancel it instead.' }
+    await execute('UPDATE product_enquiries SET admin_note = COALESCE(?, admin_note), updated_by_admin_id = ? WHERE id = ?', [note, admin.adminId, id], conn)
+    await writeAudit({ actorType: 'admin', actorId: admin.adminId, action: 'enquiry.edited', entityType: 'enquiry', entityId: id, summary: locked.e.enquiry_code }, conn)
+    return { ok: true as const }
+  })
+}
+
+/**
+ * Applies final quantities, then records one approved sale per product with points =
+ * points per unit x final quantity, and marks the request completed. Everything happens in one
+ * transaction and a completed request can't be completed again, so points are never doubled.
+ */
+export async function completeCartRequest(admin: AdminSession, id: number, lines: CartLineEdit[], note: string | null) {
+  try {
+    return await withTransaction(async (conn) => {
+      const locked = await lockOpenRequest(conn, id)
+      if ('error' in locked) return { ok: false as const, error: locked.error }
+      const { e } = locked
+      const items = await applyLineEdits(conn, id, lines)
+      if (items.length === 0) return { ok: false as const, error: 'Nothing left to complete. Cancel the request instead.' }
+
+      const today = new Date().toISOString().slice(0, 10)
+      let totalPoints = 0
+      for (const [n, i] of items.entries()) {
+        const sale = await recordApprovedSale(conn, admin, {
+          contractorId: e.contractor_id,
+          customerName: e.customer_name,
+          referenceNumber: `${e.enquiry_code}-${n + 1}`,
+          activityDate: today,
+          productCategory: i.category_name,
+          brand: i.brand,
+          productRef: i.product_name,
+          quantity: Number(i.quantity),
+          unit: i.unit,
+          eligibleAmount: Number(i.amount ?? 0),
+          // Products without catalogue points fall back to the reward rules.
+          manualPoints: i.points_per_unit === null ? null : Math.round(Number(i.points_per_unit) * Number(i.quantity)),
+          notes: `From cart request ${e.enquiry_code}`,
+        })
+        totalPoints += sale.points
+        await execute('UPDATE product_enquiry_items SET activity_id = ? WHERE id = ?', [sale.id, i.id], conn)
+      }
+      await execute(
+        "UPDATE product_enquiries SET status = 'completed', admin_note = COALESCE(?, admin_note), updated_by_admin_id = ? WHERE id = ?",
+        [note, admin.adminId, id],
+        conn,
+      )
+      await writeAudit(
+        { actorType: 'admin', actorId: admin.adminId, action: 'enquiry.completed', entityType: 'enquiry', entityId: id, summary: `${e.enquiry_code}: ${items.length} sale(s), +${totalPoints} pts` },
+        conn,
+      )
+      await notifyContractor(
+        conn,
+        e.contractor_id,
+        'reward',
+        'enquiry_completed',
+        'Cart request completed',
+        `Your request ${e.enquiry_code} is completed and added to My Sales.${totalPoints ? ` You earned ${totalPoints.toLocaleString('en-IN')} points.` : ''}${note ? ` ${note}` : ''}`,
+        admin.adminId,
+      )
+      return { ok: true as const, points: totalPoints, sales: items.length }
+    })
+  } catch (error) {
+    if (error instanceof SaleError) return { ok: false as const, error: error.message }
+    if (isDuplicateKeyError(error)) return { ok: false as const, error: 'Sales for this request already exist.' }
+    throw error
+  }
 }

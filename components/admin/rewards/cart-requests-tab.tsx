@@ -1,9 +1,7 @@
 import Link from 'next/link'
 import { ENQUIRY_STATUSES, listCartRequests } from '@/lib/server/enquiries'
-import { ActionForm } from '@/components/admin/action-form'
-import { SelectInput } from '@/components/admin/fields'
-import { EmptyState, fmtDate, fmtNumber, Panel, StatusBadge } from '@/components/admin/ui'
-import { cartRequestStatusAction } from '@/app/admin/(panel)/panel-actions'
+import { CartRequestEditor } from './cart-request-editor'
+import { EmptyState, fmtCurrency, fmtDate, fmtNumber, Panel, StatusBadge } from '@/components/admin/ui'
 import { rewardHref } from '@/lib/admin-nav'
 import { cn } from '@/lib/utils'
 
@@ -16,7 +14,7 @@ export async function CartRequestsTab({ status = '' }: { status?: string }) {
   return (
     <Panel
       title="Cart requests"
-      description="Contractors add catalogue products to a cart and send it to the store. Points shown are estimates; credit them by adding the sale under Sales once the customer buys."
+      description="Contractors add catalogue products to a cart and send it to the store. Set the final quantities the customer bought, then Complete: sales are added to Sales automatically and points are credited."
     >
       <nav aria-label="Filter requests" className="mb-4 flex flex-wrap gap-1">
         {['', ...ENQUIRY_STATUSES].map((f) => (
@@ -60,47 +58,61 @@ export async function CartRequestsTab({ status = '' }: { status?: string }) {
                 </div>
               </div>
 
-              <table className="mt-3 w-full text-left text-[13px]">
-                <thead className="text-[11px] uppercase tracking-wide text-ink-muted">
-                  <tr>
-                    <th className="py-1 font-semibold">Product</th>
-                    <th className="py-1 font-semibold">Qty</th>
-                    <th className="py-1 text-right font-semibold">Points</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-border">
-                  {r.items.map((i, idx) => (
-                    <tr key={idx}>
-                      <td className="py-1.5">
-                        {[i.brand, i.product_name].filter(Boolean).join(' ')}
-                        {i.category_name ? <span className="text-xs text-ink-muted"> &middot; {i.category_name}</span> : null}
-                      </td>
-                      <td className="py-1.5 tabular-nums">
-                        {fmtNumber(i.quantity)} {i.unit ?? ''}
-                      </td>
-                      <td className="py-1.5 text-right tabular-nums">
-                        {i.points_per_unit !== null ? fmtNumber(Number(i.points_per_unit) * Number(i.quantity)) : '—'}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-
-              {r.note ? <p className="mt-2 rounded-lg bg-app-bg px-3 py-2 text-xs text-ink">Note: {r.note}</p> : null}
-              {r.admin_note ? <p className="mt-2 text-xs text-ink-muted">Store note: {r.admin_note}</p> : null}
-
-              <div className="mt-3 border-t border-border pt-3">
-                <ActionForm action={cartRequestStatusAction} submitLabel="Update" inline>
-                  <input type="hidden" name="id" value={r.id} />
-                  <SelectInput
-                    label="Status"
-                    name="status"
-                    defaultValue={r.status === 'new' ? 'contacted' : r.status}
-                    options={ENQUIRY_STATUSES.map((s) => ({ value: s, label: label(s) }))}
+              <div className="mt-3">
+                {r.status === 'new' || r.status === 'contacted' ? (
+                  <CartRequestEditor
+                    requestId={r.id}
+                    status={r.status}
+                    lines={r.items.map((i) => ({
+                      id: i.id,
+                      name: [i.brand, i.product_name].filter(Boolean).join(' '),
+                      category: i.category_name,
+                      unit: i.unit,
+                      quantity: Number(i.quantity),
+                      pointsPerUnit: i.points_per_unit === null ? null : Number(i.points_per_unit),
+                      amount: i.amount === null ? null : Number(i.amount),
+                    }))}
                   />
-                  <input name="note" aria-label="Note for the contractor" placeholder="Note for the contractor (optional)" className="h-10 min-w-56 flex-1 rounded-lg border border-border px-3 text-sm" />
-                </ActionForm>
+                ) : (
+                  <table className="w-full text-left text-[13px]">
+                    <thead className="text-[11px] uppercase tracking-wide text-ink-muted">
+                      <tr>
+                        <th className="py-1 font-semibold">Product</th>
+                        <th className="py-1 font-semibold">Qty</th>
+                        <th className="py-1 font-semibold">Amount</th>
+                        <th className="py-1 text-right font-semibold">Points</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      {r.items.map((i) => (
+                        <tr key={i.id}>
+                          <td className="py-1.5">
+                            {[i.brand, i.product_name].filter(Boolean).join(' ')}
+                            {i.activity_id ? (
+                              <Link href={rewardHref('activities', { q: r.enquiry_code })} className="ml-1.5 text-xs text-brand hover:underline">
+                                View sale
+                              </Link>
+                            ) : null}
+                          </td>
+                          <td className="py-1.5 tabular-nums">
+                            {fmtNumber(i.quantity)} {i.unit ?? ''}
+                          </td>
+                          <td className="py-1.5 tabular-nums">{i.amount !== null ? fmtCurrency(i.amount) : '—'}</td>
+                          <td className="py-1.5 text-right tabular-nums">
+                            {i.points_per_unit !== null ? fmtNumber(Number(i.points_per_unit) * Number(i.quantity)) : '—'}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
               </div>
+
+              {r.note ? <p className="mt-2 rounded-lg bg-app-bg px-3 py-2 text-xs text-ink">Contractor note: {r.note}</p> : null}
+              {r.admin_note ? <p className="mt-2 text-xs text-ink-muted">Store note: {r.admin_note}</p> : null}
+              {r.status === 'completed' ? (
+                <p className="mt-2 text-xs text-emerald-700">Completed: sales recorded and points credited. Record any returns on the sale under Sales.</p>
+              ) : null}
             </li>
           ))}
         </ul>

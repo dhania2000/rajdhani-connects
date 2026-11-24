@@ -365,7 +365,7 @@ async function notify(
 
 export { notify as notifyContractor }
 
-async function approveWithinTransaction(conn: PoolConnection, admin: AdminSession, activityId: number) {
+async function approveWithinTransaction(conn: PoolConnection, admin: AdminSession, activityId: number, opts: { silent?: boolean } = {}) {
   const a = await queryOne<{
     id: number
     activity_code: string
@@ -466,7 +466,7 @@ async function approveWithinTransaction(conn: PoolConnection, admin: AdminSessio
     },
     conn,
   )
-  await notify(
+  if (!opts.silent) await notify(
     conn,
     a.contractor_id,
     'sale',
@@ -480,11 +480,7 @@ async function approveWithinTransaction(conn: PoolConnection, admin: AdminSessio
   return { ok: true as const, points, tokens }
 }
 
-export async function createActivity(admin: AdminSession, input: ActivityInput, approveNow: boolean) {
-  try {
-    return await withTransaction(async (conn) => {
-      const contractor = await queryOne<{ account_status: string }>('SELECT account_status FROM contractors WHERE id = ?', [input.contractorId], conn)
-      if (!contractor) return { ok: false as const, error: 'Contractor not found.' }
+async function insertActivity(conn: PoolConnection, admin: AdminSession, input: ActivityInput) {
       const r = await execute(
         `INSERT INTO reward_activities (contractor_id, customer_name, reference_number, activity_date, product_category, product_ref, brand,
            quantity, unit, eligible_amount, manual_points, notes, status, created_by_admin_id)
@@ -511,7 +507,30 @@ export async function createActivity(admin: AdminSession, input: ActivityInput, 
         { actorType: 'admin', actorId: admin.adminId, action: 'activity.created', entityType: 'reward_activity', entityId: r.insertId, summary: input.referenceNumber },
         conn,
       )
-      if (approveNow) return approveWithinTransaction(conn, admin, r.insertId)
+      return r.insertId
+}
+
+/**
+ * Records and approves a sale inside the caller's transaction (used when a cart request is
+ * completed). Throws on failure so the whole caller transaction rolls back.
+ */
+export async function recordApprovedSale(conn: PoolConnection, admin: AdminSession, input: ActivityInput) {
+  const id = await insertActivity(conn, admin, input)
+  const result = await approveWithinTransaction(conn, admin, id, { silent: true })
+  if (!result.ok) throw new SaleError(result.error)
+  return { id, points: result.points, tokens: result.tokens }
+}
+
+/** A sale could not be recorded; the message is safe to show to the admin. */
+export class SaleError extends Error {}
+
+export async function createActivity(admin: AdminSession, input: ActivityInput, approveNow: boolean) {
+  try {
+    return await withTransaction(async (conn) => {
+      const contractor = await queryOne<{ account_status: string }>('SELECT account_status FROM contractors WHERE id = ?', [input.contractorId], conn)
+      if (!contractor) return { ok: false as const, error: 'Contractor not found.' }
+      const insertId = await insertActivity(conn, admin, input)
+      if (approveNow) return approveWithinTransaction(conn, admin, insertId)
       await notify(conn, input.contractorId, 'sale', 'sale_recorded', 'Referred sale recorded', `Sale ${input.referenceNumber} is recorded and pending approval.`, admin.adminId)
       return { ok: true as const }
     })
@@ -552,23 +571,36 @@ export async function reverseActivity(admin: AdminSession, activityId: number, r
       )
       if (!a) return { ok: false as const, error: 'Activity not found.' }
       if (a.status !== 'approved') return { ok: false as const, error: 'Only approved activities can be reversed.' }
-      const earns = await query<{ id: number; currency: 'points' | 'tokens'; token_category_id: number | null; amount: number; rule_id: number | null }>(
-        "SELECT id, currency, token_category_id, amount, rule_id FROM reward_transactions WHERE activity_id = ? AND entry_type = 'earn'",
+      // Reverse what is still credited: earned minus anything already taken back by partial returns.
+      const groups = await query<{ currency: 'points' | 'tokens'; token_category_id: number | null; earned: number }>(
+        `SELECT currency, token_category_id, SUM(amount) AS earned FROM reward_transactions
+         WHERE activity_id = ? AND entry_type = 'earn' GROUP BY currency, token_category_id`,
         [activityId],
         conn,
       )
-      for (const t of earns) {
+      const returned = await queryOne<{ points: number; tokens: number }>(
+        'SELECT COALESCE(SUM(points), 0) AS points, COALESCE(SUM(tokens), 0) AS tokens FROM sale_returns WHERE activity_id = ?',
+        [activityId],
+        conn,
+      )
+      let pointsLeftToSubtract = Number(returned?.points ?? 0)
+      let tokensLeftToSubtract = Number(returned?.tokens ?? 0)
+      for (const g of groups) {
+        const already = g.currency === 'points' ? pointsLeftToSubtract : tokensLeftToSubtract
+        const take = Math.min(Number(g.earned), already)
+        if (g.currency === 'points') pointsLeftToSubtract -= take
+        else tokensLeftToSubtract -= take
+        const remaining = Number(g.earned) - take
+        if (remaining <= 0) continue
         await postLedgerEntry(conn, {
           contractorId: a.contractor_id,
-          currency: t.currency,
-          tokenCategoryId: t.token_category_id,
+          currency: g.currency,
+          tokenCategoryId: g.token_category_id,
           entryType: 'reversal',
-          amount: Number(t.amount),
-          idempotencyKey: `reverse:${t.id}`,
+          amount: remaining,
+          idempotencyKey: `reverse:act:${activityId}:${g.currency}:${g.token_category_id ?? 0}`,
           reason: `Reversal - ${a.reference_number}: ${reason}`,
           activityId,
-          ruleId: t.rule_id,
-          reversesTxnId: t.id,
           actorType: 'admin',
           actorId: admin.adminId,
         })
@@ -602,10 +634,14 @@ export interface ActivityListRow {
   eligible_amount: number
   manual_points: number | null
   notes: string | null
+  unit: string | null
   status: string
   rejection_reason: string | null
   points: number
   tokens: number
+  returned_quantity: number
+  returned_amount: number
+  returned_points: number
 }
 
 export async function listActivities(filters: { status?: string; q?: string; contractorId?: number }) {
@@ -626,7 +662,10 @@ export async function listActivities(filters: { status?: string; q?: string; con
   }
   return query<ActivityListRow>(
     `SELECT a.id, a.activity_code, a.contractor_id, c.name AS contractor_name, c.contractor_code, a.customer_name, a.reference_number,
-            a.activity_date, a.product_category, a.brand, a.product_ref, a.quantity, a.eligible_amount, a.manual_points, a.notes, a.status, a.rejection_reason,
+            a.activity_date, a.product_category, a.brand, a.product_ref, a.quantity, a.eligible_amount, a.manual_points, a.notes, a.unit, a.status, a.rejection_reason,
+            COALESCE((SELECT SUM(r.quantity) FROM sale_returns r WHERE r.activity_id = a.id), 0) AS returned_quantity,
+            COALESCE((SELECT SUM(r.amount) FROM sale_returns r WHERE r.activity_id = a.id), 0) AS returned_amount,
+            COALESCE((SELECT SUM(r.points) FROM sale_returns r WHERE r.activity_id = a.id), 0) AS returned_points,
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t WHERE t.activity_id = a.id AND t.entry_type = 'earn' AND t.currency = 'points'), 0) AS points,
             COALESCE((SELECT SUM(t.amount) FROM reward_transactions t WHERE t.activity_id = a.id AND t.entry_type = 'earn' AND t.currency = 'tokens'), 0) AS tokens
      FROM reward_activities a JOIN contractors c ON c.id = a.contractor_id
@@ -635,4 +674,178 @@ export async function listActivities(filters: { status?: string; q?: string; con
      LIMIT 200`,
     params,
   )
+}
+
+// ---------------------------------------------------------------------------
+// Editing sales and recording returns
+// ---------------------------------------------------------------------------
+
+/**
+ * Edits a sale. Pending sales can change everything; approved sales only change descriptive
+ * details, because quantity, amount and points changes after approval go through returns.
+ */
+export async function updateActivity(admin: AdminSession, activityId: number, input: ActivityInput) {
+  try {
+    return await withTransaction(async (conn) => {
+      const a = await queryOne<{ status: string; contractor_id: number }>('SELECT status, contractor_id FROM reward_activities WHERE id = ? FOR UPDATE', [activityId], conn)
+      if (!a) return { ok: false as const, error: 'Sale not found.' }
+      if (a.status === 'submitted' || a.status === 'draft') {
+        await execute(
+          `UPDATE reward_activities SET customer_name = ?, reference_number = ?, activity_date = ?, product_category = ?, product_ref = ?, brand = ?,
+             quantity = ?, unit = ?, eligible_amount = ?, manual_points = ?, notes = ? WHERE id = ?`,
+          [
+            input.customerName,
+            input.referenceNumber,
+            input.activityDate,
+            input.productCategory,
+            input.productRef,
+            input.brand,
+            input.quantity,
+            input.unit,
+            input.eligibleAmount,
+            input.manualPoints,
+            input.notes,
+            activityId,
+          ],
+          conn,
+        )
+      } else if (a.status === 'approved') {
+        await execute(
+          `UPDATE reward_activities SET customer_name = ?, reference_number = ?, activity_date = ?, product_category = ?, product_ref = ?, brand = ?,
+             unit = ?, notes = ? WHERE id = ?`,
+          [input.customerName, input.referenceNumber, input.activityDate, input.productCategory, input.productRef, input.brand, input.unit, input.notes, activityId],
+          conn,
+        )
+      } else {
+        return { ok: false as const, error: `A ${a.status} sale cannot be edited.` }
+      }
+      await writeAudit(
+        { actorType: 'admin', actorId: admin.adminId, action: 'activity.updated', entityType: 'reward_activity', entityId: activityId, summary: input.referenceNumber },
+        conn,
+      )
+      return { ok: true as const }
+    })
+  } catch (error) {
+    if (isDuplicateKeyError(error)) return { ok: false as const, error: 'This invoice / reference number is already recorded for this contractor.' }
+    throw error
+  }
+}
+
+export const saleReturnSchema = z.object({
+  quantity: z.preprocess((v) => (v === '' || v == null ? 0 : v), z.coerce.number().min(0).max(10_000_000)),
+  amount: z.preprocess((v) => (v === '' || v == null ? null : v), z.coerce.number().min(0).max(1_000_000_000).nullable()),
+  reason: z.string().trim().min(3, 'Give a reason (e.g. 5 bags returned).').max(255),
+})
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+/**
+ * Records a partial (or full) return on an approved sale and takes back points/tokens in proportion
+ * to the returned share. The returned part shows as rejected in the contractor's My Sales.
+ */
+export async function recordSaleReturn(admin: AdminSession, activityId: number, input: z.infer<typeof saleReturnSchema>) {
+  try {
+    return await withTransaction(async (conn) => {
+      const a = await queryOne<{ status: string; contractor_id: number; reference_number: string; quantity: number; eligible_amount: number; unit: string | null }>(
+        'SELECT status, contractor_id, reference_number, quantity, eligible_amount, unit FROM reward_activities WHERE id = ? FOR UPDATE',
+        [activityId],
+        conn,
+      )
+      if (!a) return { ok: false as const, error: 'Sale not found.' }
+      if (a.status !== 'approved') return { ok: false as const, error: 'Returns can only be recorded on approved sales.' }
+
+      const prior = await queryOne<{ quantity: number; amount: number; points: number; tokens: number }>(
+        `SELECT COALESCE(SUM(quantity), 0) AS quantity, COALESCE(SUM(amount), 0) AS amount,
+                COALESCE(SUM(points), 0) AS points, COALESCE(SUM(tokens), 0) AS tokens
+         FROM sale_returns WHERE activity_id = ?`,
+        [activityId],
+        conn,
+      )
+      const qty = Number(a.quantity)
+      const amountTotal = Number(a.eligible_amount)
+      const qtyLeft = round2(qty - Number(prior?.quantity ?? 0))
+      const amountLeft = round2(amountTotal - Number(prior?.amount ?? 0))
+
+      let share: number
+      let returnQty = 0
+      let returnAmount: number
+      if (qty > 0) {
+        if (!(input.quantity > 0)) return { ok: false as const, error: 'Enter how many units were returned.' }
+        if (input.quantity > qtyLeft) return { ok: false as const, error: `Only ${qtyLeft} × ${(a.unit ?? 'units').replace(/^per\s+/i, '')} left on this sale.` }
+        returnQty = input.quantity
+        share = returnQty / qty
+        returnAmount = input.amount ?? round2(amountTotal * share)
+      } else {
+        if (!(input.amount && input.amount > 0)) return { ok: false as const, error: 'Enter the returned amount.' }
+        if (amountTotal <= 0) return { ok: false as const, error: 'This sale has no quantity or amount to return.' }
+        returnAmount = input.amount
+        share = returnAmount / amountTotal
+      }
+      if (returnAmount > amountLeft) returnAmount = Math.max(0, amountLeft)
+      const fullyReturned = qty > 0 ? returnQty >= qtyLeft : returnAmount >= amountLeft
+
+      const earned = await query<{ currency: 'points' | 'tokens'; token_category_id: number | null; earned: number }>(
+        `SELECT currency, token_category_id, SUM(amount) AS earned FROM reward_transactions
+         WHERE activity_id = ? AND entry_type = 'earn' GROUP BY currency, token_category_id`,
+        [activityId],
+        conn,
+      )
+      const earnedPoints = earned.filter((e) => e.currency === 'points').reduce((n, e) => n + Number(e.earned), 0)
+      const earnedTokens = earned.filter((e) => e.currency === 'tokens').reduce((n, e) => n + Number(e.earned), 0)
+      const pointsLeft = earnedPoints - Number(prior?.points ?? 0)
+      const tokensLeft = earnedTokens - Number(prior?.tokens ?? 0)
+      // The last return takes whatever is left, so rounding never leaves points behind.
+      const points = Math.max(0, Math.min(pointsLeft, fullyReturned ? pointsLeft : Math.round(earnedPoints * share)))
+      const tokens = Math.max(0, Math.min(tokensLeft, fullyReturned ? tokensLeft : Math.round(earnedTokens * share)))
+
+      const r = await execute(
+        'INSERT INTO sale_returns (activity_id, quantity, amount, points, tokens, reason, created_by_admin_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
+        [activityId, returnQty, returnAmount, points, tokens, input.reason, admin.adminId],
+        conn,
+      )
+      const tokenCategory = earned.find((e) => e.currency === 'tokens')?.token_category_id ?? null
+      for (const [currency, amount] of [['points', points], ['tokens', tokens]] as const) {
+        if (amount <= 0) continue
+        await postLedgerEntry(conn, {
+          contractorId: a.contractor_id,
+          currency,
+          tokenCategoryId: currency === 'tokens' ? tokenCategory : null,
+          entryType: 'reversal',
+          amount,
+          idempotencyKey: `return:${r.insertId}:${currency}`,
+          reason: `Return - ${a.reference_number}: ${input.reason}`,
+          activityId,
+          actorType: 'admin',
+          actorId: admin.adminId,
+        })
+      }
+      await writeAudit(
+        {
+          actorType: 'admin',
+          actorId: admin.adminId,
+          action: 'activity.returned',
+          entityType: 'reward_activity',
+          entityId: activityId,
+          summary: `${a.reference_number}: returned ${returnQty || ''} ${a.unit ?? ''} Rs.${returnAmount}, -${points} pts`.replace(/\s+/g, ' '),
+        },
+        conn,
+      )
+      const what = returnQty > 0 ? `${returnQty.toLocaleString('en-IN')} × ${(a.unit ?? 'units').replace(/^per\s+/i, '')}` : `Rs. ${returnAmount.toLocaleString('en-IN')}`
+      await notify(
+        conn,
+        a.contractor_id,
+        'sale',
+        'sale_returned',
+        'Sale return recorded',
+        `${what} of sale ${a.reference_number} were returned${points ? `; ${points.toLocaleString('en-IN')} points deducted` : ''}. ${input.reason}`,
+        admin.adminId,
+      )
+      return { ok: true as const, points, tokens }
+    })
+  } catch (error) {
+    if (error instanceof InsufficientBalanceError) {
+      return { ok: false as const, error: "The contractor has already used these points, so they can't be deducted. Adjust their balance under Points & Tokens first." }
+    }
+    throw error
+  }
 }

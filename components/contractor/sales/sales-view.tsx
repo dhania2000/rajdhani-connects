@@ -90,8 +90,16 @@ export function SalesView({ records }: { records: SaleRecord[] }) {
                 {r.description && <p className="mt-0.5 text-[12px] leading-snug whitespace-pre-line text-ink-muted">{r.description}</p>}
                 <div className="mt-2 flex items-center justify-between border-t border-border pt-2">
                   <p className="text-[15px] font-bold text-ink">{formatINR(r.amount)}</p>
-                  <p className="text-[12px] font-semibold text-brand">
-                    {r.reward > 0 ? (r.status === 'pending' ? `${formatPts(r.reward)} on approval` : `+${formatPts(r.reward)}`) : 'No reward'}
+                  <p className={`text-[12px] font-semibold ${r.isReturn ? 'text-danger' : 'text-brand'}`}>
+                    {r.isReturn
+                      ? r.reward < 0
+                        ? `−${formatPts(-r.reward)}`
+                        : 'Returned'
+                      : r.reward > 0
+                        ? r.status === 'pending'
+                          ? `${formatPts(r.reward)} on approval`
+                          : `+${formatPts(r.reward)}`
+                        : 'No reward'}
                   </p>
                 </div>
               </li>

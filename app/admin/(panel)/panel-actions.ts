@@ -4,8 +4,7 @@ import { revalidatePath } from 'next/cache'
 import type { z } from 'zod'
 import { requireAdmin } from '@/lib/server/auth'
 import { InsufficientBalanceError } from '@/lib/server/ledger'
-import { ENQUIRY_STATUSES, setCartRequestStatus } from '@/lib/server/enquiries'
-import type { EnquiryStatus } from '@/lib/types'
+import { completeCartRequest, saveCartRequestItems, setCartRequestStatus, type CartLineEdit } from '@/lib/server/enquiries'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
 import {
   adjustContractorPoints,
@@ -28,6 +27,9 @@ import {
   activitySchema,
   approveActivity,
   createActivity,
+  recordSaleReturn,
+  saleReturnSchema,
+  updateActivity,
   createRule,
   rejectActivity,
   reverseActivity,
@@ -416,8 +418,58 @@ export async function saveAccountEntryAction(_: AdminActionState, fd: FormData):
 export async function cartRequestStatusAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
   const admin = await requireAdmin()
   const id = idOf(fd)
-  const status = String(fd.get('status')) as EnquiryStatus
-  if (!id || !ENQUIRY_STATUSES.includes(status)) return { error: 'Choose a status.' }
+  if (!id) return { error: 'Request not found.' }
+  const intent = String(fd.get('intent') ?? '')
   const note = String(fd.get('note') ?? '').trim().slice(0, 500) || null
-  return done(await setCartRequestStatus(admin, id, status, note), 'Request updated. The contractor has been notified.')
+
+  // Item edits: qty_<itemId> (0 removes it) and optional amount_<itemId>.
+  const lines: CartLineEdit[] = []
+  for (const [key, value] of fd.entries()) {
+    const m = /^qty_(\d+)$/.exec(key)
+    if (!m) continue
+    const quantity = Number(value)
+    if (!Number.isFinite(quantity) || quantity < 0) return { error: 'Quantities must be 0 or more.' }
+    const rawAmount = String(fd.get(`amount_${m[1]}`) ?? '').trim()
+    const amount = rawAmount === '' ? null : Number(rawAmount)
+    if (amount !== null && (!Number.isFinite(amount) || amount < 0)) return { error: 'Amounts must be 0 or more.' }
+    lines.push({ itemId: Number(m[1]), quantity, amount })
+  }
+
+  if (intent === 'complete') {
+    const r = await completeCartRequest(admin, id, lines, note)
+    revalidatePath('/admin', 'layout')
+    if (!r.ok) return { error: r.error }
+    return { ok: true, message: `Completed: ${r.sales} sale(s) added to Sales and ${r.points.toLocaleString('en-IN')} points credited.` }
+  }
+  if (intent === 'save' || intent === 'contacted') {
+    const saved = await saveCartRequestItems(admin, id, lines, note)
+    if (!saved.ok || intent === 'save') return done(saved, 'Changes saved.')
+    return done(await setCartRequestStatus(admin, id, 'contacted', null), 'Changes saved and marked as contacted. The contractor has been notified.')
+  }
+  if (intent === 'cancelled' || intent === 'new') {
+    return done(await setCartRequestStatus(admin, id, intent, note), 'Request updated. The contractor has been notified.')
+  }
+  return { error: 'Choose what to do.' }
+}
+
+// Sale edits & returns ------------------------------------------------------------
+
+export async function updateActivityAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Sale not found.' }
+  const parsed = parse(activitySchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  return done(await updateActivity(admin, id, parsed.data), 'Sale updated.')
+}
+
+export async function saleReturnAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Sale not found.' }
+  const parsed = parse(saleReturnSchema, entries(fd))
+  if ('error' in parsed) return { error: parsed.error }
+  const r = await recordSaleReturn(admin, id, parsed.data)
+  if (!r.ok) return { error: r.error }
+  return done(r, `Return recorded. ${r.points.toLocaleString('en-IN')} points deducted from the contractor.`)
 }
