@@ -37,8 +37,10 @@ export interface SaleRecord {
   quantity?: string
   amount: number
   status: ApprovalStatus
-  /** Points credited, or the points the admin set for a sale still pending approval. */
+  /** Points credited (net of returns), or the points set for a sale still pending approval. Negative for a return. */
   reward: number
+  /** Set on the extra rows that represent material returned from an approved sale. */
+  isReturn?: boolean
 }
 
 export interface RewardTransaction {

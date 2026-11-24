@@ -7,8 +7,9 @@ import { ActionForm } from '@/components/admin/action-form'
 import { FormDialog } from '@/components/admin/form-dialog'
 import { DeleteRecordButton } from '@/components/admin/confirm-action-button'
 import { CheckboxInput, FormGrid, SelectInput, TextArea, TextInput } from '@/components/admin/fields'
-import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, Panel, StatusBadge, Td } from '@/components/admin/ui'
-import { activityDecisionAction, createActivityAction } from '@/app/admin/(panel)/panel-actions'
+import { DataTable, EmptyState, fmtCurrency, fmtDate, fmtNumber, Panel, StatusBadge, Td, toInputDate } from '@/components/admin/ui'
+import { activityDecisionAction, createActivityAction, saleReturnAction, updateActivityAction } from '@/app/admin/(panel)/panel-actions'
+import type { ActivityListRow } from '@/lib/server/rewards-engine'
 import { cn } from '@/lib/utils'
 
 const FILTERS = [
@@ -18,6 +19,84 @@ const FILTERS = [
   { value: 'rejected', label: 'Rejected' },
   { value: 'reversed', label: 'Reversed' },
 ]
+
+/** Edit dialog: everything while pending; only descriptive details once approved (use Return for quantity/points). */
+function EditSaleDialog({ a }: { a: ActivityListRow }) {
+  const locked = a.status === 'approved'
+  return (
+    <FormDialog triggerLabel="Edit" title={`Edit sale ${a.reference_number}`} variant="edit">
+      <ActionForm action={updateActivityAction} submitLabel="Save sale">
+        <input type="hidden" name="id" value={a.id} />
+        <input type="hidden" name="contractorId" value={a.contractor_id} />
+        {locked ? (
+          <>
+            <input type="hidden" name="quantity" value={Number(a.quantity)} />
+            <input type="hidden" name="eligibleAmount" value={Number(a.eligible_amount)} />
+            <input type="hidden" name="manualPoints" value={a.manual_points ?? ''} />
+            <p className="rounded-lg bg-app-bg px-3 py-2 text-xs text-ink-muted">
+              This sale is approved, so quantity, amount and points are fixed. If the customer returned material, use <strong>Return</strong> instead:
+              the points are deducted in proportion.
+            </p>
+          </>
+        ) : null}
+        <FormGrid>
+          <TextInput label="Referred customer name" name="customerName" defaultValue={a.customer_name ?? ''} />
+          <TextInput label="Invoice / reference number" name="referenceNumber" required defaultValue={a.reference_number} />
+          <TextInput label="Sale date" name="activityDate" type="date" required defaultValue={toInputDate(a.activity_date)} />
+          <TextInput label="Product category" name="productCategory" defaultValue={a.product_category ?? ''} />
+          <TextInput label="Brand" name="brand" defaultValue={a.brand ?? ''} />
+          <TextInput label="Product name" name="productRef" defaultValue={a.product_ref ?? ''} />
+          {locked ? null : (
+            <>
+              <TextInput label="Quantity" name="quantity" type="number" min={0} step="any" required defaultValue={Number(a.quantity)} />
+              <TextInput label="Purchase amount (₹)" name="eligibleAmount" type="number" min={0} step="any" required defaultValue={Number(a.eligible_amount)} />
+              <TextInput label="Reward points" name="manualPoints" type="number" min={0} step={1} defaultValue={a.manual_points ?? ''} placeholder="Blank = use reward rules" />
+            </>
+          )}
+          <TextInput label="Unit" name="unit" defaultValue={a.unit ?? ''} />
+          <TextArea label="Product description" name="notes" className="sm:col-span-2" defaultValue={a.notes ?? ''} />
+        </FormGrid>
+      </ActionForm>
+    </FormDialog>
+  )
+}
+
+/** Return dialog for approved sales: points are taken back in proportion to what was returned. */
+function ReturnSaleDialog({ a }: { a: ActivityListRow }) {
+  const qtyLeft = Number(a.quantity) - Number(a.returned_quantity)
+  const amountLeft = Number(a.eligible_amount) - Number(a.returned_amount)
+  const pointsLeft = Number(a.points) - Number(a.returned_points)
+  if ((Number(a.quantity) > 0 && qtyLeft <= 0) || (Number(a.quantity) === 0 && amountLeft <= 0)) return null
+  return (
+    <FormDialog triggerLabel="Return" title={`Record return on ${a.reference_number}`} variant="edit">
+      <ActionForm action={saleReturnAction} submitLabel="Record return">
+        <input type="hidden" name="id" value={a.id} />
+        <p className="text-sm text-ink-muted">
+          Left on this sale: {Number(a.quantity) > 0 ? `${fmtNumber(qtyLeft)} ${a.unit ?? 'units'} \u00B7 ` : ''}
+          {fmtCurrency(amountLeft)} &middot; {fmtNumber(pointsLeft)} pts. Points are deducted in proportion to the returned share, and the returned part shows as
+          rejected in the contractor&apos;s My Sales.
+        </p>
+        <FormGrid>
+          {Number(a.quantity) > 0 ? (
+            <TextInput label={`Returned quantity (${a.unit ?? 'units'})`} name="quantity" type="number" min={0} max={qtyLeft} step="any" required />
+          ) : (
+            <input type="hidden" name="quantity" value="0" />
+          )}
+          <TextInput
+            label="Returned amount (₹)"
+            name="amount"
+            type="number"
+            min={0}
+            step="0.01"
+            required={Number(a.quantity) === 0}
+            placeholder={Number(a.quantity) > 0 ? 'Auto (in proportion)' : ''}
+          />
+          <TextInput label="Reason" name="reason" required minLength={3} placeholder="e.g. 5 bags returned unused" className="sm:col-span-2" />
+        </FormGrid>
+      </ActionForm>
+    </FormDialog>
+  )
+}
 
 export async function ActivitiesTab({ status = '', q = '' }: { status?: string; q?: string }) {
   const [rows, contractors, products] = await Promise.all([
@@ -110,14 +189,21 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
                 {[a.product_category, a.brand, a.product_ref].filter(Boolean).join(' / ') || '\u2014'}
                 {a.notes ? <p className="mt-0.5 line-clamp-2 text-ink-muted">{a.notes}</p> : null}
               </Td>
-              <Td className="tabular-nums">{fmtNumber(a.quantity)}</Td>
-              <Td className="tabular-nums">{fmtCurrency(a.eligible_amount)}</Td>
+              <Td className="tabular-nums">
+                {fmtNumber(a.quantity)}
+                {Number(a.returned_quantity) > 0 ? <p className="text-xs text-red-700">-{fmtNumber(a.returned_quantity)} returned</p> : null}
+              </Td>
+              <Td className="tabular-nums">
+                {fmtCurrency(a.eligible_amount)}
+                {Number(a.returned_amount) > 0 ? <p className="text-xs text-red-700">-{fmtCurrency(a.returned_amount)}</p> : null}
+              </Td>
               <Td className="text-xs tabular-nums">
                 {a.status === 'submitted' ? (
                   a.manual_points !== null ? `${fmtNumber(a.manual_points)} pts (on approval)` : 'By rules (on approval)'
                 ) : (
                   <>
                     {fmtNumber(a.points)} pts / {fmtNumber(a.tokens)} tok
+                    {Number(a.returned_points) > 0 ? <p className="text-red-700">-{fmtNumber(a.returned_points)} pts returned</p> : null}
                   </>
                 )}
               </Td>
@@ -137,14 +223,21 @@ export async function ActivitiesTab({ status = '', q = '' }: { status?: string; 
                       <input type="hidden" name="decision" value="reject" />
                       <input name="reason" aria-label="Rejection reason" placeholder="Reason" required minLength={3} className="h-10 w-32 rounded-lg border border-border px-2 text-sm" />
                     </ActionForm>
+                    <EditSaleDialog a={a} />
                     <DeleteRecordButton entity="activity" id={a.id} name={a.reference_number ?? `Activity #${a.id}`} label="activity" />
                   </div>
                 ) : a.status === 'approved' ? (
-                  <ActionForm action={activityDecisionAction} submitLabel="Reverse" submitVariant="outline" inline>
-                    <input type="hidden" name="id" value={a.id} />
-                    <input type="hidden" name="decision" value="reverse" />
-                    <input name="reason" aria-label="Reversal reason" placeholder="Reason" required minLength={3} className="h-10 w-32 rounded-lg border border-border px-2 text-sm" />
-                  </ActionForm>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1.5">
+                      <EditSaleDialog a={a} />
+                      <ReturnSaleDialog a={a} />
+                    </div>
+                    <ActionForm action={activityDecisionAction} submitLabel="Reverse all" submitVariant="outline" inline>
+                      <input type="hidden" name="id" value={a.id} />
+                      <input type="hidden" name="decision" value="reverse" />
+                      <input name="reason" aria-label="Reversal reason" placeholder="Reason" required minLength={3} className="h-10 w-32 rounded-lg border border-border px-2 text-sm" />
+                    </ActionForm>
+                  </div>
                 ) : (
                   <DeleteRecordButton entity="activity" id={a.id} name={a.reference_number ?? `Activity #${a.id}`} label="activity" />
                 )}

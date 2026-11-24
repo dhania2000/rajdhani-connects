@@ -84,8 +84,37 @@ async function runMigrations() {
   }
   await getPool().query(ENQUIRIES_DDL)
   await getPool().query(ENQUIRY_ITEMS_DDL)
+  // Cart items created before amount/activity_id existed.
+  for (const [column, ddl] of [
+    ['amount', 'ALTER TABLE product_enquiry_items ADD COLUMN amount DECIMAL(12,2) NULL AFTER points_per_unit'],
+    ['activity_id', 'ALTER TABLE product_enquiry_items ADD COLUMN activity_id BIGINT UNSIGNED NULL AFTER amount'],
+  ] as const) {
+    const [has] = await getPool().query<RowDataPacket[]>(
+      "SELECT 1 FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'product_enquiry_items' AND column_name = ?",
+      [column],
+    )
+    if (has.length === 0) await getPool().query(ddl)
+  }
+  await getPool().query(SALE_RETURNS_DDL)
   await runCatalogueSeeds(getPool())
 }
+
+// Kept in sync with database/schema.sql (partial sale returns).
+const SALE_RETURNS_DDL = `CREATE TABLE IF NOT EXISTS sale_returns (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  activity_id         BIGINT UNSIGNED NOT NULL,
+  quantity            DECIMAL(12,2)   NOT NULL DEFAULT 0,
+  amount              DECIMAL(12,2)   NOT NULL DEFAULT 0,
+  points              BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  tokens              BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  reason              VARCHAR(255)    NOT NULL,
+  created_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_sale_returns_activity (activity_id),
+  CONSTRAINT fk_sale_returns_activity FOREIGN KEY (activity_id) REFERENCES reward_activities (id) ON DELETE CASCADE,
+  CONSTRAINT fk_sale_returns_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 // Kept in sync with database/schema.sql (contractor cart requests).
 const ENQUIRIES_DDL = `CREATE TABLE IF NOT EXISTS product_enquiries (
@@ -121,6 +150,8 @@ const ENQUIRY_ITEMS_DDL = `CREATE TABLE IF NOT EXISTS product_enquiry_items (
   category_name   VARCHAR(80)     NULL,
   quantity        DECIMAL(12,2)   NOT NULL,
   points_per_unit BIGINT UNSIGNED NULL,
+  amount          DECIMAL(12,2)   NULL,
+  activity_id     BIGINT UNSIGNED NULL,
   PRIMARY KEY (id),
   KEY idx_enquiry_items (enquiry_id),
   CONSTRAINT fk_enquiry_items_enquiry FOREIGN KEY (enquiry_id) REFERENCES product_enquiries (id) ON DELETE CASCADE,

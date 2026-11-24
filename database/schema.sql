@@ -588,10 +588,29 @@ CREATE TABLE IF NOT EXISTS product_enquiry_items (
   category_name   VARCHAR(80)     NULL,
   quantity        DECIMAL(12,2)   NOT NULL,
   points_per_unit BIGINT UNSIGNED NULL,
+  amount          DECIMAL(12,2)   NULL,
+  activity_id     BIGINT UNSIGNED NULL,
   PRIMARY KEY (id),
   KEY idx_enquiry_items (enquiry_id),
   CONSTRAINT fk_enquiry_items_enquiry FOREIGN KEY (enquiry_id) REFERENCES product_enquiries (id) ON DELETE CASCADE,
   CONSTRAINT fk_enquiry_items_product FOREIGN KEY (product_id) REFERENCES products (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- Partial returns against an approved sale; points are taken back in proportion.
+CREATE TABLE IF NOT EXISTS sale_returns (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  activity_id         BIGINT UNSIGNED NOT NULL,
+  quantity            DECIMAL(12,2)   NOT NULL DEFAULT 0,
+  amount              DECIMAL(12,2)   NOT NULL DEFAULT 0,
+  points              BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  tokens              BIGINT UNSIGNED NOT NULL DEFAULT 0,
+  reason              VARCHAR(255)    NOT NULL,
+  created_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_sale_returns_activity (activity_id),
+  CONSTRAINT fk_sale_returns_activity FOREIGN KEY (activity_id) REFERENCES reward_activities (id) ON DELETE CASCADE,
+  CONSTRAINT fk_sale_returns_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 CREATE TABLE IF NOT EXISTS contractor_app_configuration (
