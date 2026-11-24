@@ -4,9 +4,25 @@ import type { Pool, RowDataPacket } from 'mysql2/promise'
  * One-time catalogue additions. Each batch runs once per database (tracked in
  * contractor_app_configuration), so products an admin later edits or deletes are never re-added.
  */
-const SEEDS: { key: string; products: SeedProduct[] }[] = [
+const SEEDS: { key: string; brand: string; products: SeedProduct[] }[] = [
+  {
+    key: 'seed_derron_tf_d1_v1',
+    brand: 'Derron',
+    products: [
+      {
+        name: 'TF-D1 Extreme Density Tile Adhesive',
+        points: 10,
+        image: '/images/products/derron-tf-d1.jpg',
+        // Listed first in Tile Adhesive / Glue, above the Furbo XD range.
+        order: 0,
+        description:
+          'C1E Type 1 tile adhesive (IS 15477, ISO certified). High bond strength, water resistant, heat and weather resistant, easy workability. Extreme density formula. 20 kg bag.',
+      },
+    ],
+  },
   {
     key: 'seed_furbo_xd_adhesives_v1',
+    brand: 'Furbo',
     products: [
       {
         name: 'XD15 Pro Strength Tile Adhesive',
@@ -45,9 +61,10 @@ interface SeedProduct {
   points: number
   image: string
   description: string
+  /** Display order within the category; defaults to the product's position in its batch (1, 2, ...). */
+  order?: number
 }
 
-const BRAND = 'Furbo'
 const UNIT = 'per 20 kg bag'
 
 /** Finds the tile adhesive category (seeded as slug "adhesive"), creating it if an admin removed it. */
@@ -80,7 +97,7 @@ export async function runCatalogueSeeds(pool: Pool) {
       await pool.query(
         `INSERT INTO products (category_id, name, brand, unit, reward_points, description, image_url, display_order, status)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active')`,
-        [categoryId, p.name, BRAND, UNIT, p.points, p.description, p.image, i + 1],
+        [categoryId, p.name, seed.brand, UNIT, p.points, p.description, p.image, p.order ?? i + 1],
       )
     }
   }
