@@ -10,9 +10,9 @@ const baseMetadata: Metadata = {
   title: 'Rajdhani Connects – Contractor Rewards',
   description:
     'Contractor rewards app for Rajdhani Connects partners: track referred sales, earn rewards, redeem gifts and view offers.',
-  applicationName: 'Rajdhani Tiles',
+  applicationName: 'Rajdhani Contractor Rewards',
   // Home-screen behaviour on iPhone (Share > Add to Home Screen).
-  appleWebApp: { capable: true, title: 'Rajdhani Tiles', statusBarStyle: 'black-translucent' },
+  appleWebApp: { capable: true, title: 'Rajdhani Connects', statusBarStyle: 'black-translucent' },
 }
 
 /** Favicon and iPhone home-screen icon follow the logo uploaded in App Content Control. */

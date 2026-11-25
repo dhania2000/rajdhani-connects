@@ -2,8 +2,6 @@ import type { MetadataRoute } from 'next'
 import { getPublicBranding } from '@/lib/server/contractor-app'
 import { logoVersion } from '@/lib/server/branding'
 
-const HOME_SCREEN_NAME = 'Rajdhani Tiles'
-
 // Read per request so the app name follows Rewards Engine > App content.
 export const dynamic = 'force-dynamic'
 
@@ -13,9 +11,8 @@ export default async function manifest(): Promise<MetadataRoute.Manifest> {
   const v = logoVersion(logoUrl)
   return {
     id: '/contractor',
-    // Name under the icon when the app is added to the phone's home screen.
-    name: HOME_SCREEN_NAME,
-    short_name: HOME_SCREEN_NAME,
+    name: brandName,
+    short_name: brandName.length > 12 ? brandName.split(' ')[0] : brandName,
     description: `${brandName} contractor rewards: sales, points, gifts and offers.`,
     start_url: '/contractor',
     scope: '/',
