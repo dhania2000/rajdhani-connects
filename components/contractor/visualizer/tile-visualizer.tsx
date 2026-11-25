@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Camera, Check, Download, ImagePlus, Plus, RotateCcw, ShoppingCart, Trash2 } from 'lucide-react'
+import { Camera, Check, Download, ImagePlus, Maximize2, Minimize2, Plus, RotateCcw, ShoppingCart, Trash2, ZoomIn, ZoomOut } from 'lucide-react'
 import type { Product } from '@/lib/types'
 import { useCart } from '@/components/contractor/cart/cart-store'
 import { cn } from '@/lib/utils'
@@ -18,6 +18,15 @@ interface Area {
 
 const MAX_SIDE = 1600
 const PATTERN_W = 1024
+const MIN_ZOOM = 1
+const MAX_ZOOM = 5
+const TAP_SLOP = 8
+
+interface View {
+  scale: number
+  x: number
+  y: number
+}
 
 function loadImage(src: string) {
   return new Promise<HTMLImageElement>((resolve, reject) => {
@@ -42,6 +51,15 @@ export function TileVisualizer({ products }: { products: Product[] }) {
   const shadingRef = useRef<HTMLCanvasElement | null>(null)
   const textures = useRef(new Map<string, HTMLImageElement>())
   const dragRef = useRef<{ areaId: number; index: number } | null>(null)
+  // Zoom / pan: the canvas is scaled with a CSS transform (origin top-left) inside a clipping viewport.
+  const [view, setView] = useState<View>({ scale: 1, x: 0, y: 0 })
+  const [fullscreen, setFullscreen] = useState(false)
+  const pointers = useRef(new Map<number, { x: number; y: number }>())
+  const gesture = useRef<
+    | { kind: 'tap'; startX: number; startY: number; photo: Pt; view: View; moved: boolean }
+    | { kind: 'pinch'; dist: number; midX: number; midY: number; view: View }
+    | null
+  >(null)
   const nextId = useRef(1)
 
   const [photoSize, setPhotoSize] = useState<{ w: number; h: number } | null>(null)
@@ -192,7 +210,7 @@ export function TileVisualizer({ products }: { products: Product[] }) {
       }
 
       if (!withOverlay) return
-      const r = Math.max(8, photo.width / 70)
+      const r = Math.max(8, photo.width / 70) / Math.sqrt(view.scale)
       for (const area of areas) {
         const isActive = area.id === activeId
         if (area.points.length >= 2) {
@@ -218,7 +236,7 @@ export function TileVisualizer({ products }: { products: Product[] }) {
         }
       }
     },
-    [areas, activeId, lighting, buildPattern],
+    [areas, activeId, lighting, buildPattern, view.scale],
   )
 
   useEffect(() => {
@@ -226,20 +244,52 @@ export function TileVisualizer({ products }: { products: Product[] }) {
   }, [render, texturesReady, photoSize])
 
   /** Tap position in photo pixels; taps on or just outside the edge snap to the edge so corners are easy to hit. */
-  function toPhoto(e: React.PointerEvent<HTMLDivElement>): Pt {
+  function toPhoto(clientX: number, clientY: number): Pt {
     const canvas = canvasRef.current!
+    // getBoundingClientRect includes the zoom transform, so this mapping stays correct when zoomed.
     const rect = canvas.getBoundingClientRect()
-    const x = ((e.clientX - rect.left) / rect.width) * canvas.width
-    const y = ((e.clientY - rect.top) / rect.height) * canvas.height
+    const x = ((clientX - rect.left) / rect.width) * canvas.width
+    const y = ((clientY - rect.top) / rect.height) * canvas.height
     return { x: Math.min(canvas.width, Math.max(0, x)), y: Math.min(canvas.height, Math.max(0, y)) }
   }
 
-  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    if (!photoRef.current) return
-    const p = toPhoto(e)
-    const canvas = canvasRef.current!
-    const hit = (Math.max(8, canvas.width / 70) * 2.2) as number
+  /** Keeps the zoomed photo covering its box (no empty gaps when panning). */
+  const clampView = useCallback((v: View): View => {
+    const canvas = canvasRef.current
+    if (!canvas) return v
+    const w = canvas.offsetWidth
+    const h = canvas.offsetHeight
+    const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, v.scale))
+    return {
+      scale,
+      x: Math.min(0, Math.max(w * (1 - scale), v.x)),
+      y: Math.min(0, Math.max(h * (1 - scale), v.y)),
+    }
+  }, [])
 
+  /**
+   * Zoom keeping the point (fx, fy) — in canvas-box pixels — fixed on screen. `from` pins the starting
+   * view (pinch); otherwise each step builds on the latest view so fast wheel/button steps all count.
+   */
+  const zoomAt = useCallback(
+    (next: (scale: number) => number, fx: number, fy: number, from?: View) => {
+      setView((prev) => {
+        const base = from ?? prev
+        const scale = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, next(base.scale)))
+        return clampView({ scale, x: fx - ((fx - base.x) * scale) / base.scale, y: fy - ((fy - base.y) * scale) / base.scale })
+      })
+    },
+    [clampView],
+  )
+
+  function zoomBy(factor: number) {
+    const canvas = canvasRef.current
+    if (!canvas) return
+    zoomAt((s) => s * factor, canvas.offsetWidth / 2, canvas.offsetHeight / 2)
+  }
+
+  /** A short tap (not a pan) places a corner or selects an area. */
+  function handleTap(p: Pt) {
     if (active && placing) {
       // Read the latest points inside the updater so quick successive taps never overwrite each other.
       setAreas((all) =>
@@ -251,28 +301,119 @@ export function TileVisualizer({ products }: { products: Product[] }) {
       )
       return
     }
-    if (active) {
-      const index = active.points.findIndex((q) => Math.hypot(q.x - p.x, q.y - p.y) < hit)
-      if (index >= 0) {
-        dragRef.current = { areaId: active.id, index }
-        e.currentTarget.setPointerCapture(e.pointerId)
-        return
-      }
-    }
     const tapped = [...areas].reverse().find((a) => a.points.length === 4 && pointInQuad(p, a.points as Quad))
     if (tapped) setActiveId(tapped.id)
   }
 
-  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
-    const drag = dragRef.current
-    if (!drag) return
-    const p = toPhoto(e)
-    setAreas((all) => all.map((a) => (a.id === drag.areaId ? { ...a, points: a.points.map((q, i) => (i === drag.index ? p : q)) } : a)))
+  function boxPoint(clientX: number, clientY: number) {
+    // Position inside the un-transformed canvas box (its parent's content box starts where the canvas does).
+    const parent = canvasRef.current!.parentElement!.getBoundingClientRect()
+    const canvas = canvasRef.current!
+    return { x: clientX - parent.left - canvas.offsetLeft, y: clientY - parent.top - canvas.offsetTop }
   }
 
-  function onPointerUp() {
-    dragRef.current = null
+  function onPointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    if (!photoRef.current) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+
+    if (pointers.current.size === 2) {
+      // Second finger: switch to pinch-zoom and cancel any tap or corner drag.
+      dragRef.current = null
+      const [a, b] = [...pointers.current.values()]
+      const mid = boxPoint((a.x + b.x) / 2, (a.y + b.y) / 2)
+      gesture.current = { kind: 'pinch', dist: Math.hypot(a.x - b.x, a.y - b.y) || 1, midX: mid.x, midY: mid.y, view }
+      return
+    }
+    if (pointers.current.size > 2) return
+
+    const p = toPhoto(e.clientX, e.clientY)
+    const canvas = canvasRef.current!
+    const hit = (Math.max(8, canvas.width / 70) * 2.2) / Math.sqrt(view.scale)
+    if (active && !placing) {
+      const index = active.points.findIndex((q) => Math.hypot(q.x - p.x, q.y - p.y) < hit)
+      if (index >= 0) {
+        dragRef.current = { areaId: active.id, index }
+        gesture.current = null
+        return
+      }
+    }
+    gesture.current = { kind: 'tap', startX: e.clientX, startY: e.clientY, photo: p, view, moved: false }
   }
+
+  function onPointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (!pointers.current.has(e.pointerId)) return
+    pointers.current.set(e.pointerId, { x: e.clientX, y: e.clientY })
+    const g = gesture.current
+
+    if (g?.kind === 'pinch' && pointers.current.size >= 2) {
+      const [a, b] = [...pointers.current.values()]
+      const dist = Math.hypot(a.x - b.x, a.y - b.y)
+      zoomAt(() => (g.view.scale * dist) / g.dist, g.midX, g.midY, g.view)
+      return
+    }
+    const drag = dragRef.current
+    if (drag) {
+      const p = toPhoto(e.clientX, e.clientY)
+      setAreas((all) => all.map((a) => (a.id === drag.areaId ? { ...a, points: a.points.map((q, i) => (i === drag.index ? p : q)) } : a)))
+      return
+    }
+    if (g?.kind === 'tap') {
+      const dx = e.clientX - g.startX
+      const dy = e.clientY - g.startY
+      if (!g.moved && Math.hypot(dx, dy) < TAP_SLOP) return
+      g.moved = true
+      // Dragging on the photo pans it when zoomed in.
+      if (g.view.scale > 1) setView(clampView({ scale: g.view.scale, x: g.view.x + dx, y: g.view.y + dy }))
+    }
+  }
+
+  function onPointerUp(e: React.PointerEvent<HTMLDivElement>) {
+    pointers.current.delete(e.pointerId)
+    const g = gesture.current
+    if (g?.kind === 'tap' && !g.moved && pointers.current.size === 0) handleTap(g.photo)
+    if (pointers.current.size === 0) {
+      gesture.current = null
+      dragRef.current = null
+    } else if (g?.kind === 'pinch') {
+      // One finger lifted after a pinch: don't turn the remaining finger into a tap.
+      gesture.current = null
+    }
+  }
+
+  // Mouse-wheel zoom over the photo. Registered as non-passive so it can stop the page from scrolling
+  // (otherwise the photo slides away from under the pointer mid-zoom).
+  const viewportRef = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const el = viewportRef.current
+    if (!el) return
+    const onWheel = (e: WheelEvent) => {
+      if (!photoRef.current || !canvasRef.current) return
+      e.preventDefault()
+      const pt = boxPoint(e.clientX, e.clientY)
+      const factor = e.deltaY < 0 ? 1.15 : 1 / 1.15
+      zoomAt((s) => s * factor, pt.x, pt.y)
+    }
+    el.addEventListener('wheel', onWheel, { passive: false })
+    return () => el.removeEventListener('wheel', onWheel)
+  }, [zoomAt, photoSize, fullscreen])
+
+  // Full screen: lock page scroll, allow Esc to exit, and re-fit the zoom to the new size.
+  useEffect(() => {
+    if (!fullscreen) return
+    const prev = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    const onKey = (ev: KeyboardEvent) => ev.key === 'Escape' && setFullscreen(false)
+    window.addEventListener('keydown', onKey)
+    return () => {
+      document.body.style.overflow = prev
+      window.removeEventListener('keydown', onKey)
+    }
+  }, [fullscreen])
+
+  useEffect(() => {
+    setView({ scale: 1, x: 0, y: 0 })
+  }, [fullscreen, photoSize])
 
   const update = (patch: Partial<Area>) => active && setAreas((all) => all.map((a) => (a.id === active.id ? { ...a, ...patch } : a)))
 
@@ -348,21 +489,82 @@ export function TileVisualizer({ products }: { products: Product[] }) {
               ? `Tap the ${['first', 'second', 'third', 'fourth'][active!.points.length]} corner of the wall or floor (${active!.points.length}/4).`
               : 'Drag the white corners to adjust. Tap another area to edit it, or add a new area for a different tile.'}
           </p>
-          {/* The padded wrapper takes the taps, so the photo's very edges and corners can be tapped too. */}
-          <div
-            className="-m-3 touch-none p-3"
-            onPointerDown={onPointerDown}
-            onPointerMove={onPointerMove}
-            onPointerUp={onPointerUp}
-            onPointerCancel={onPointerUp}
-          >
-            <canvas
-              ref={canvasRef}
-              width={photoSize.w}
-              height={photoSize.h}
-              className="block w-full rounded-xl bg-black/5 shadow-[0_1px_4px_rgba(28,35,64,0.12)]"
-              aria-label="Your photo with tiles applied"
-            />
+          <div className={fullscreen ? 'fixed inset-0 z-[70] flex flex-col bg-black' : 'relative'}>
+            {fullscreen && (
+              <div className="flex items-center gap-2 px-3 pt-[calc(env(safe-area-inset-top)+0.5rem)] pb-2 text-white">
+                <p className="min-w-0 flex-1 text-[12px] leading-snug text-white/85">
+                  {placing ? `Tap corner ${active!.points.length + 1} of 4` : 'Drag corners to adjust · pinch or use +/− to zoom'}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setFullscreen(false)}
+                  className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-full bg-white/15 px-3 text-[13px] font-semibold"
+                >
+                  <Minimize2 className="size-4" aria-hidden="true" />
+                  Done
+                </button>
+              </div>
+            )}
+            {/* The padded viewport takes the taps, so the photo's very edges and corners can be tapped too. */}
+            <div
+              className={cn('touch-none select-none', fullscreen ? 'relative flex min-h-0 flex-1 items-center justify-center p-3' : '-m-3 p-3')}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              ref={viewportRef}
+            >
+              <div className={cn('relative overflow-hidden', fullscreen ? 'flex max-h-full max-w-full' : 'rounded-xl bg-black/5 shadow-[0_1px_4px_rgba(28,35,64,0.12)]')}>
+                <canvas
+                  ref={canvasRef}
+                  width={photoSize.w}
+                  height={photoSize.h}
+                  style={{ transform: `translate(${view.x}px, ${view.y}px) scale(${view.scale})`, transformOrigin: '0 0' }}
+                  className={cn('block', fullscreen ? 'max-h-[calc(100dvh-7rem)] max-w-full object-contain' : 'w-full')}
+                  aria-label="Your photo with tiles applied"
+                />
+                <div className="absolute right-2 bottom-2 flex items-center gap-1.5" onPointerDown={(e) => e.stopPropagation()}>
+                  {view.scale > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => setView({ scale: 1, x: 0, y: 0 })}
+                      className="h-9 rounded-full bg-black/60 px-2.5 text-[12px] font-bold text-white backdrop-blur"
+                      aria-label="Reset zoom"
+                    >
+                      {view.scale.toFixed(1)}×
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => zoomBy(1 / 1.5)}
+                    disabled={view.scale <= MIN_ZOOM}
+                    className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur disabled:opacity-40"
+                    aria-label="Zoom out"
+                  >
+                    <ZoomOut className="size-[18px]" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => zoomBy(1.5)}
+                    disabled={view.scale >= MAX_ZOOM}
+                    className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur disabled:opacity-40"
+                    aria-label="Zoom in"
+                  >
+                    <ZoomIn className="size-[18px]" />
+                  </button>
+                  {!fullscreen && (
+                    <button
+                      type="button"
+                      onClick={() => setFullscreen(true)}
+                      className="flex size-9 items-center justify-center rounded-full bg-black/60 text-white backdrop-blur"
+                      aria-label="Full screen"
+                    >
+                      <Maximize2 className="size-[18px]" />
+                    </button>
+                  )}
+                </div>
+              </div>
+            </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2" role="tablist" aria-label="Areas">
