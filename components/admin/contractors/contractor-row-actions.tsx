@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Coins, Copy, Eye, MoreHorizontal } from 'lucide-react'
+import { Coins, Copy, Eye, ImagePlus, MoreHorizontal } from 'lucide-react'
 import { toast } from 'sonner'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import type { ProductOption } from '@/lib/server/catalogue-admin'
 import { AssignPointsDialog } from './assign-points-dialog'
+import { ContractorPhotosDialog } from './contractor-photos-dialog'
 
-/** Row "⋯" menu: Assign Points (opens the dialog), View profile, Copy code. */
+/** Row "⋯" menu: Assign Points and Upload Photos (open dialogs), View profile, Copy code. */
 export function ContractorRowActions({
   contractor,
   code,
@@ -20,6 +21,7 @@ export function ContractorRowActions({
 }) {
   const router = useRouter()
   const [assignOpen, setAssignOpen] = useState(false)
+  const [photosOpen, setPhotosOpen] = useState(false)
 
   return (
     <>
@@ -34,6 +36,10 @@ export function ContractorRowActions({
           <DropdownMenuItem onClick={() => setAssignOpen(true)} className="font-medium text-brand">
             <Coins aria-hidden="true" />
             Assign Points
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setPhotosOpen(true)} className="font-medium text-brand">
+            <ImagePlus aria-hidden="true" />
+            Upload Photos
           </DropdownMenuItem>
           <DropdownMenuSeparator />
           <DropdownMenuItem onClick={() => router.push(`/admin/contractors/${contractor.id}`)}>
@@ -54,6 +60,7 @@ export function ContractorRowActions({
         </DropdownMenuContent>
       </DropdownMenu>
       <AssignPointsDialog contractor={contractor} products={products} open={assignOpen} onOpenChange={setAssignOpen} showTrigger={false} />
+      <ContractorPhotosDialog contractor={contractor} open={photosOpen} onOpenChange={setPhotosOpen} />
     </>
   )
 }

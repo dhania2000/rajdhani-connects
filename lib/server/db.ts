@@ -108,8 +108,24 @@ async function runMigrations() {
     if (has.length === 0) await getPool().query(ddl)
   }
   await getPool().query(SALE_RETURNS_DDL)
+  await getPool().query(CONTRACTOR_PHOTOS_DDL)
   await runCatalogueSeeds(getPool())
 }
+
+// Kept in sync with database/schema.sql (photos the admin uploads to a contractor's gallery).
+const CONTRACTOR_PHOTOS_DDL = `CREATE TABLE IF NOT EXISTS contractor_photos (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  image_url           VARCHAR(300)    NOT NULL,
+  caption             VARCHAR(200)    NULL,
+  photo_date          DATE            NOT NULL,
+  uploaded_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_contractor_photos (contractor_id, photo_date),
+  CONSTRAINT fk_contractor_photos_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_contractor_photos_admin FOREIGN KEY (uploaded_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`
 
 // Kept in sync with database/schema.sql (partial sale returns).
 const SALE_RETURNS_DDL = `CREATE TABLE IF NOT EXISTS sale_returns (

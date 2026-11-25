@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Gift, House, ShoppingCart, User } from 'lucide-react'
+import { Gift, House, Images, ShoppingCart, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const tabs = [
-  { href: '/contractor', label: 'Home', icon: House, match: (p: string) => !/^\/contractor\/(sales|rewards|profile)/.test(p) },
+  { href: '/contractor', label: 'Home', icon: House, match: (p: string) => !/^\/contractor\/(sales|rewards|gallery|profile)/.test(p) },
   { href: '/contractor/sales', label: 'Sales', icon: ShoppingCart, match: (p: string) => p.startsWith('/contractor/sales') },
   { href: '/contractor/rewards', label: 'Rewards', icon: Gift, match: (p: string) => p.startsWith('/contractor/rewards') },
+  { href: '/contractor/gallery', label: 'Gallery', icon: Images, match: (p: string) => p.startsWith('/contractor/gallery') },
   { href: '/contractor/profile', label: 'Profile', icon: User, match: (p: string) => p.startsWith('/contractor/profile') },
 ]
 
@@ -20,7 +21,7 @@ export function BottomNavigation() {
       aria-label="Primary"
       className="fixed inset-x-0 bottom-0 z-40 mx-auto w-full max-w-[420px] border-t border-border bg-white pb-safe"
     >
-      <ul className="grid h-16 grid-cols-4">
+      <ul className="grid h-16 grid-cols-5">
         {tabs.map(({ href, label, icon: Icon, match }) => {
           const active = match(pathname)
           return (

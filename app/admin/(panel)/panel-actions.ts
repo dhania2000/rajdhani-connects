@@ -6,6 +6,7 @@ import { requireAdmin } from '@/lib/server/auth'
 import { InsufficientBalanceError } from '@/lib/server/ledger'
 import { completeCartRequest, saveCartRequestItems, setCartRequestStatus, type CartLineEdit } from '@/lib/server/enquiries'
 import { isUploadedFile, saveImageUpload } from '@/lib/server/media'
+import { addContractorPhoto, deleteContractorPhoto, finishContractorPhotoUpload, listContractorPhotos, type ContractorPhoto } from '@/lib/server/contractor-photos'
 import {
   adjustContractorPoints,
   bulkAdjustContractorPoints,
@@ -507,4 +508,57 @@ export async function saleReturnAction(_: AdminActionState, fd: FormData): Promi
   const r = await recordSaleReturn(admin, id, parsed.data)
   if (!r.ok) return { error: r.error }
   return done(r, `Return recorded. ${r.points.toLocaleString('en-IN')} points deducted from the contractor.`)
+}
+
+// Contractor gallery photos ------------------------------------------------------
+
+const PHOTO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
+/** Today in India (YYYY-MM-DD), used when the browser sends no usable date. */
+function todayIst() {
+  return new Date(Date.now() + 5.5 * 3600_000).toISOString().slice(0, 10)
+}
+
+export async function listContractorPhotosAction(contractorId: number): Promise<ContractorPhoto[]> {
+  await requireAdmin()
+  if (!Number.isInteger(contractorId) || contractorId <= 0) return []
+  return listContractorPhotos(contractorId)
+}
+
+/** Uploads one photo (the dialog calls this once per photo). */
+export async function uploadContractorPhotoAction(fd: FormData): Promise<{ ok: true; photo: ContractorPhoto } | { ok: false; error: string }> {
+  try {
+    const admin = await requireAdmin()
+    const contractorId = idOf(fd, 'contractorId')
+    const file = fd.get('photo')
+    if (!contractorId) return { ok: false, error: 'Contractor not found.' }
+    if (!isUploadedFile(file)) return { ok: false, error: 'Choose a photo.' }
+    const caption = String(fd.get('caption') ?? '').trim().slice(0, 200) || null
+    // The date is the one stamped on the picture in the browser; it must be today or yesterday (time zones).
+    const sent = String(fd.get('photoDate') ?? '')
+    const today = todayIst()
+    const yesterday = new Date(Date.parse(today) - 86400_000).toISOString().slice(0, 10)
+    const tomorrow = new Date(Date.parse(today) + 86400_000).toISOString().slice(0, 10)
+    const date = PHOTO_DATE.test(sent) && sent >= yesterday && sent <= tomorrow ? sent : today
+    return await addContractorPhoto(admin, contractorId, file, caption, date)
+  } catch (error) {
+    console.error('uploadContractorPhotoAction', error)
+    return { ok: false, error: 'Upload failed. Please try again.' }
+  }
+}
+
+export async function finishContractorPhotoUploadAction(contractorId: number, count: number, caption: string) {
+  const admin = await requireAdmin()
+  if (!Number.isInteger(contractorId) || contractorId <= 0 || !Number.isInteger(count)) return { ok: false as const }
+  await finishContractorPhotoUpload(admin, contractorId, Math.min(count, 100), caption.trim().slice(0, 200) || null)
+  revalidatePath('/contractor/gallery')
+  return { ok: true as const }
+}
+
+export async function deleteContractorPhotoAction(photoId: number) {
+  const admin = await requireAdmin()
+  if (!Number.isInteger(photoId) || photoId <= 0) return { ok: false as const, error: 'Photo not found.' }
+  const r = await deleteContractorPhoto(admin, photoId)
+  revalidatePath('/contractor/gallery')
+  return r
 }
