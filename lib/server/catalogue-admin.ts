@@ -119,6 +119,12 @@ export async function listProductOptions(): Promise<ProductOption[]> {
   }))
 }
 
+/** "Brand Product" label for a catalogue product, used in ledger reasons. */
+export async function productLabel(id: number) {
+  const p = await queryOne<{ name: string; brand: string | null }>('SELECT name, brand FROM products WHERE id = ?', [id])
+  return p ? [p.brand, p.name].filter(Boolean).join(' ') : null
+}
+
 export function listCategories() {
   return query<CategoryRow>(
     `SELECT c.id, c.slug, c.name, c.image_url, c.display_order, c.status,

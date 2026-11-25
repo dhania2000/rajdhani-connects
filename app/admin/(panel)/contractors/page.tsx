@@ -6,7 +6,9 @@ import { FormDialog } from '@/components/admin/form-dialog'
 import { CheckboxInput } from '@/components/admin/fields'
 import { ContractorFields } from '@/components/admin/contractors/contractor-fields'
 import { ContractorRowActions } from '@/components/admin/contractors/contractor-row-actions'
-import { DataTable, EmptyState, fmtDate, fmtNumber, PageHeader, Panel, StatusBadge, Td } from '@/components/admin/ui'
+import { AssignPointsDialog } from '@/components/admin/contractors/assign-points-dialog'
+import { listProductOptions } from '@/lib/server/catalogue-admin'
+import { DataTable, EmptyState, fmtNumber, PageHeader, Panel, StatusBadge, Td } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { createContractorAction } from '../panel-actions'
 
@@ -23,7 +25,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
   const page = Math.max(1, Number(sp.page) || 1)
   const status = sp.status ?? ''
   const q = sp.q?.trim() ?? ''
-  const { rows, total } = await listContractors({ q, status: status || undefined, page })
+  const [{ rows, total }, products] = await Promise.all([listContractors({ q, status: status || undefined, page }), listProductOptions()])
   const pages = Math.max(1, Math.ceil(total / CONTRACTOR_PAGE_SIZE))
   const href = (p: Record<string, string | number>) => {
     const params = new URLSearchParams({ ...(q && { q }), ...(status && { status }), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })
@@ -83,29 +85,37 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
         {rows.length === 0 ? (
           <EmptyState title="No contractors found" description={q ? 'Try a different search.' : 'Add a contractor to get started.'} />
         ) : (
-          <DataTable head={['Contractor', 'Mobile', 'Location', 'Status', 'Points', 'Joined', 'Last login', <span key="actions" className="sr-only">Actions</span>]}>
+          <DataTable head={['Contractor', 'Mobile', <span key="assign" className="sr-only">Assign points</span>, <span key="actions" className="sr-only">Actions</span>]}>
             {rows.map((c) => (
               <tr key={c.id} className="hover:bg-app-bg/60">
                 <Td>
-                  <Link href={`/admin/contractors/${c.id}`} className="font-medium hover:text-brand">
-                    {c.name}
+                  <Link href={`/admin/contractors/${c.id}`} className="flex items-center gap-3 hover:text-brand">
+                    {c.photo_url ? (
+                      <img src={c.photo_url} alt="" className="size-10 shrink-0 rounded-full border border-border object-cover" />
+                    ) : (
+                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-sm font-semibold text-brand" aria-hidden="true">
+                        {c.name
+                          .split(/\s+/)
+                          .map((w) => w[0])
+                          .slice(0, 2)
+                          .join('')
+                          .toUpperCase()}
+                      </span>
+                    )}
+                    <span className="min-w-0">
+                      <span className="block font-medium">{c.name}</span>
+                      {c.account_status !== 'active' ? (
+                        <span className="mt-0.5 block">
+                          <StatusBadge status={c.account_status} />
+                        </span>
+                      ) : null}
+                    </span>
                   </Link>
-                  <p className="font-mono text-xs text-ink-muted">{c.contractor_code}</p>
                 </Td>
                 <Td className="tabular-nums">{c.mobile}</Td>
-                <Td>{[c.area, c.city].filter(Boolean).join(', ') || '\u2014'}</Td>
-                <Td>
-                  <div className="flex flex-col items-start gap-1">
-                    <StatusBadge status={c.account_status} />
-                    {c.verification_status !== 'verified' ? <StatusBadge status={c.verification_status} /> : null}
-                  </div>
+                <Td className="text-right">
+                  <AssignPointsDialog contractor={{ id: c.id, name: c.name, mobile: c.mobile }} products={products} />
                 </Td>
-                <Td className="tabular-nums">
-                  {fmtNumber(c.available)}
-                  {Number(c.pending) > 0 ? <p className="text-xs text-ink-muted">+{fmtNumber(c.pending)} pending</p> : null}
-                </Td>
-                <Td>{fmtDate(c.joining_date)}</Td>
-                <Td>{c.last_login_at ? fmtDate(c.last_login_at) : 'Never'}</Td>
                 <Td className="w-10 text-right">
                   <ContractorRowActions id={c.id} name={c.name} code={c.contractor_code} />
                 </Td>
