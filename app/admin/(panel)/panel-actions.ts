@@ -378,6 +378,9 @@ export async function broadcastAction(_: AdminActionState, fd: FormData): Promis
 export async function saveAppContentAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
   const admin = await requireAdmin()
   const raw = entries(fd)
+  const logo = await uploadImage(fd, 'logoFile', admin.adminId)
+  if (logo && 'error' in logo) return { error: logo.error }
+  if (logo) raw.logoUrl = logo.url
   const parsed = parse(appContentSchema, {
     ...raw,
     quickActions: QUICK_ACTION_KEYS.map((key) => ({
@@ -388,7 +391,10 @@ export async function saveAppContentAction(_: AdminActionState, fd: FormData): P
     })),
   })
   if ('error' in parsed) return { error: parsed.error }
-  return done(await saveAppContent(admin, parsed.data), 'Contractor app content saved.')
+  const result = await saveAppContent(admin, parsed.data)
+  // The logo shows on every page (both panels, favicon, phone icons), so refresh everything.
+  revalidatePath('/', 'layout')
+  return done(result, 'Contractor app content saved.')
 }
 
 // Product catalogue -----------------------------------------------------------

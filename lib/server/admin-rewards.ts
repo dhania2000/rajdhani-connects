@@ -531,6 +531,13 @@ export type QuickActionKey = (typeof QUICK_ACTION_KEYS)[number]
 
 export const appContentSchema = z.object({
   brandName: z.string().trim().min(2).max(80),
+  /** Uploaded logo (empty = the built-in Rajdhani logo). Used in both panels, the favicon and the phone icons. */
+  logoUrl: z
+    .string()
+    .trim()
+    .max(300)
+    .regex(/^(\/[\w\-./]*)?$/, 'Logo must be an uploaded image.')
+    .default(''),
   storePhone: z.string().trim().max(20).regex(/^[+\d\s-]*$/, 'Store phone can contain digits, spaces, + and - only.').default(''),
   welcomeText: z.string().trim().max(200),
   rewardCardTitle: z.string().trim().min(2).max(60),
@@ -549,6 +556,7 @@ export type AppContent = z.infer<typeof appContentSchema>
 
 export const DEFAULT_APP_CONTENT: AppContent = {
   brandName: 'Rajdhani Connects',
+  logoUrl: '',
   storePhone: '',
   welcomeText: 'Welcome,',
   rewardCardTitle: 'Your Rewards',

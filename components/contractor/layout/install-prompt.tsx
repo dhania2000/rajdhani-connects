@@ -119,7 +119,7 @@ export function InstallPrompt() {
         <X className="size-4" aria-hidden="true" />
       </button>
       <div className="flex items-center gap-3 pr-6">
-        <BrandLogo className="size-12 ring-1 ring-border" />
+        <BrandLogo className="size-12 ring-1 ring-border" src={content.logoUrl} />
         <div className="min-w-0">
           <p id="install-title" className="text-[15px] font-bold text-ink">
             Add {content.brandName} to your phone

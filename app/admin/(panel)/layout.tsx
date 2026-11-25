@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 import { requireAdmin } from '@/lib/server/auth'
-import { getAdminAlertCount } from '@/lib/server/admin-rewards'
+import { getAdminAlertCount, getAppContent } from '@/lib/server/admin-rewards'
 import { AdminShell } from '@/components/admin/shell/admin-shell'
 import { adminLogoutAction } from '../actions'
 
@@ -13,9 +13,9 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminPanelLayout({ children }: { children: ReactNode }) {
   const admin = await requireAdmin()
-  const alertCount = await getAdminAlertCount().catch(() => 0)
+  const [alertCount, content] = await Promise.all([getAdminAlertCount().catch(() => 0), getAppContent().catch(() => null)])
   return (
-    <AdminShell brand="Rajdhani Connects" adminName={admin.name} adminRole={admin.role} alertCount={alertCount} logoutAction={adminLogoutAction}>
+    <AdminShell brand={content?.brandName ?? 'Rajdhani Connects'} logoUrl={content?.logoUrl ?? ''} adminName={admin.name} adminRole={admin.role} alertCount={alertCount} logoutAction={adminLogoutAction}>
       {children}
     </AdminShell>
   )

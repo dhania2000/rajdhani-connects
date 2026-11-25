@@ -3,8 +3,9 @@ import { ActionForm } from '@/components/admin/action-form'
 import { CheckboxInput, FormGrid, SelectInput, TextInput } from '@/components/admin/fields'
 import { Panel } from '@/components/admin/ui'
 import { saveAppContentAction } from '@/app/admin/(panel)/panel-actions'
+import { LogoUploadField } from './logo-upload-field'
 
-const CONTENT_FIELDS = ['brandName', 'storePhone', 'welcomeText', 'rewardCardTitle', 'redeemButtonText', 'supportMessage', 'ledgerMessage'] as const
+const CONTENT_FIELDS = ['brandName', 'logoUrl', 'storePhone', 'welcomeText', 'rewardCardTitle', 'redeemButtonText', 'supportMessage', 'ledgerMessage'] as const
 const CONFIG_FIELDS = ['pointsLabel', 'tokensLabel', 'activityApprovalMode'] as const
 
 /** Both tabs save the same configuration record, so fields from the other tab are carried as hidden inputs. */
@@ -30,6 +31,7 @@ export async function AppContentTab({ section }: { section: 'content' | 'configu
           <>
             <h3 className="text-sm font-semibold text-ink">Branding & welcome</h3>
             <FormGrid>
+              <LogoUploadField defaultValue={c.logoUrl} />
               <TextInput label="App display name" name="brandName" required defaultValue={c.brandName} />
               <TextInput label="Welcome message" name="welcomeText" defaultValue={c.welcomeText} />
               <TextInput label="Store phone (Call / WhatsApp)" name="storePhone" type="tel" defaultValue={c.storePhone} placeholder="+91 98765 43210" />
