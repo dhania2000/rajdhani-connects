@@ -488,6 +488,21 @@ CREATE TABLE IF NOT EXISTS contractor_account_entries (
   CONSTRAINT fk_account_entries_admin FOREIGN KEY (created_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Photos the admin uploads to a contractor's gallery (shown in the contractor app > Gallery).
+CREATE TABLE IF NOT EXISTS contractor_photos (
+  id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  contractor_id       BIGINT UNSIGNED NOT NULL,
+  image_url           VARCHAR(300)    NOT NULL,
+  caption             VARCHAR(200)    NULL,
+  photo_date          DATE            NOT NULL,
+  uploaded_by_admin_id BIGINT UNSIGNED NULL,
+  created_at          DATETIME        NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (id),
+  KEY idx_contractor_photos (contractor_id, photo_date),
+  CONSTRAINT fk_contractor_photos_contractor FOREIGN KEY (contractor_id) REFERENCES contractors (id) ON DELETE CASCADE,
+  CONSTRAINT fk_contractor_photos_admin FOREIGN KEY (uploaded_by_admin_id) REFERENCES admins (id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE IF NOT EXISTS notifications (
   id                  BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
   kind                ENUM('reward','sale','offer','system') NOT NULL DEFAULT 'system',
