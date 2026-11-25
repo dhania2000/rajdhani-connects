@@ -56,7 +56,7 @@ import {
 import {
   accountEntrySchema,
   categorySchema,
-  productLabel,
+  productLabels,
   slugify,
   productSchema,
   saveAccountEntry,
@@ -202,11 +202,17 @@ export async function assignPointsAction(_: AdminActionState, fd: FormData): Pro
   const points = Number(fd.get('points'))
   if (!Number.isInteger(points) || points < 1 || points > 10_000_000) return { error: 'Enter whole points of 1 or more.' }
   const type = String(fd.get('pointType')) === 'bonus' ? 'Bonus Points' : 'Add Points'
-  const productId = idOf(fd, 'productId')
-  const product = productId ? await productLabel(productId) : null
-  if (productId && !product) return { error: 'That product no longer exists.' }
+  // Products picked in the dialog: qty_<productId> = quantity.
+  const picked: { id: number; qty: number }[] = []
+  for (const [k, v] of fd.entries()) {
+    const m = /^qty_(\d+)$/.exec(k)
+    const qty = Number(v)
+    if (m && Number.isFinite(qty) && qty > 0) picked.push({ id: Number(m[1]), qty })
+  }
+  const labels = await productLabels(picked.map((p) => p.id))
+  const items = picked.filter((p) => labels.has(p.id)).map((p) => `${p.qty.toLocaleString('en-IN')} × ${labels.get(p.id)}`)
   const note = String(fd.get('note') ?? '').trim().slice(0, 200)
-  const reason = [product ? `${type}: ${product}` : type, note].filter(Boolean).join(' - ').slice(0, 255)
+  const reason = [items.length ? `${type}: ${items.join(', ')}` : type, note].filter(Boolean).join(' - ').slice(0, 255)
   const key = String(fd.get('idempotencyKey') ?? '')
   if (!/^[0-9a-f-]{36}$/i.test(key)) return { error: 'Please reopen the form and try again.' }
   const result = await adjustContractorPoints(admin, id, { direction: 'credit', currency: 'points', amount: points, reason, idempotencyKey: key })
