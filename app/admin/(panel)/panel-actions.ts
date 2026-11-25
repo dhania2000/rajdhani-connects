@@ -56,6 +56,7 @@ import {
 import {
   accountEntrySchema,
   categorySchema,
+  productLabel,
   slugify,
   productSchema,
   saveAccountEntry,
@@ -191,6 +192,25 @@ export async function unlockContractorAction(_: AdminActionState, fd: FormData):
   const id = idOf(fd)
   if (!id) return { error: 'Contractor not found.' }
   return done(await unlockContractor(admin, id), 'Account unlocked.')
+}
+
+/** Contractor list "Assign Points": Add Points or Bonus Points, optionally for a catalogue product. */
+export async function assignPointsAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
+  const admin = await requireAdmin()
+  const id = idOf(fd)
+  if (!id) return { error: 'Contractor not found.' }
+  const points = Number(fd.get('points'))
+  if (!Number.isInteger(points) || points < 1 || points > 10_000_000) return { error: 'Enter whole points of 1 or more.' }
+  const type = String(fd.get('pointType')) === 'bonus' ? 'Bonus Points' : 'Add Points'
+  const productId = idOf(fd, 'productId')
+  const product = productId ? await productLabel(productId) : null
+  if (productId && !product) return { error: 'That product no longer exists.' }
+  const note = String(fd.get('note') ?? '').trim().slice(0, 200)
+  const reason = [product ? `${type}: ${product}` : type, note].filter(Boolean).join(' - ').slice(0, 255)
+  const key = String(fd.get('idempotencyKey') ?? '')
+  if (!/^[0-9a-f-]{36}$/i.test(key)) return { error: 'Please reopen the form and try again.' }
+  const result = await adjustContractorPoints(admin, id, { direction: 'credit', currency: 'points', amount: points, reason, idempotencyKey: key })
+  return done(result, `${points.toLocaleString('en-IN')} points assigned (${type}).`)
 }
 
 export async function adjustPointsAction(_: AdminActionState, fd: FormData): Promise<AdminActionState> {
