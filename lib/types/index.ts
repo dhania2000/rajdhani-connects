@@ -104,6 +104,10 @@ export interface Product {
   description?: string
   /** Reward points per unit, when the admin set them. */
   points?: number
+  /** Flat tile-face image for the Tile Visualizer. */
+  texture?: string
+  /** Real tile size in mm (keeps rectangular tiles in proportion). */
+  tileSizeMm?: { width: number; height: number }
 }
 
 export type EnquiryStatus = 'new' | 'contacted' | 'completed' | 'cancelled'

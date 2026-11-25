@@ -413,6 +413,9 @@ export async function saveProductAction(_: AdminActionState, fd: FormData): Prom
   const upload = await uploadImage(fd, 'imageFile', admin.adminId)
   if (upload && 'error' in upload) return { error: upload.error }
   if (upload) parsed.data.imageUrl = upload.url
+  const texture = await uploadImage(fd, 'textureFile', admin.adminId)
+  if (texture && 'error' in texture) return { error: texture.error }
+  if (texture) parsed.data.textureUrl = texture.url
   const id = idOf(fd)
   return done(await saveProduct(admin, id, parsed.data), id ? 'Product updated.' : 'Product added.')
 }

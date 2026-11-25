@@ -526,7 +526,7 @@ export async function listSentNotifications() {
 // Contractor app content configuration
 // ---------------------------------------------------------------------------
 
-export const QUICK_ACTION_KEYS = ['sales', 'rewards', 'claim', 'catalogue', 'offers', 'ledger'] as const
+export const QUICK_ACTION_KEYS = ['sales', 'rewards', 'claim', 'catalogue', 'offers', 'ledger', 'visualizer'] as const
 export type QuickActionKey = (typeof QUICK_ACTION_KEYS)[number]
 
 export const appContentSchema = z.object({
@@ -566,6 +566,7 @@ export const DEFAULT_APP_CONTENT: AppContent = {
     { key: 'catalogue', title: 'Product Catalogue', subtitle: '', visible: true },
     { key: 'offers', title: 'Offers & Schemes', subtitle: '', visible: true },
     { key: 'ledger', title: 'My Ledger', subtitle: '(Udhar/Advance)', visible: false },
+    { key: 'visualizer', title: 'Tile Visualizer', subtitle: '(Try on photo)', visible: true },
   ],
 }
 
