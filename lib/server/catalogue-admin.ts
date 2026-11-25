@@ -92,6 +92,7 @@ export interface ProductOption {
   description: string
   /** Reward points per unit, if the admin set them. */
   points: number | null
+  image: string | null
 }
 
 export async function listProductOptions(): Promise<ProductOption[]> {
@@ -103,8 +104,9 @@ export async function listProductOptions(): Promise<ProductOption[]> {
     category: string
     description: string | null
     reward_points: number | null
+    image_url: string | null
   }>(
-    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description, p.reward_points
+    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description, p.reward_points, COALESCE(p.image_url, c.image_url) AS image_url
      FROM products p JOIN product_categories c ON c.id = p.category_id
      WHERE p.status = 'active' ORDER BY c.display_order, c.name, p.display_order, p.name LIMIT 2000`,
   )
@@ -116,13 +118,18 @@ export async function listProductOptions(): Promise<ProductOption[]> {
     category: r.category,
     description: r.description ?? '',
     points: r.reward_points === null ? null : Number(r.reward_points),
+    image: r.image_url,
   }))
 }
 
-/** "Brand Product" label for a catalogue product, used in ledger reasons. */
-export async function productLabel(id: number) {
-  const p = await queryOne<{ name: string; brand: string | null }>('SELECT name, brand FROM products WHERE id = ?', [id])
-  return p ? [p.brand, p.name].filter(Boolean).join(' ') : null
+/** "Brand Product" labels for catalogue products, used in ledger reasons. */
+export async function productLabels(ids: number[]) {
+  if (ids.length === 0) return new Map<number, string>()
+  const rows = await query<{ id: number; name: string; brand: string | null }>(
+    `SELECT id, name, brand FROM products WHERE id IN (${ids.map(() => '?').join(',')})`,
+    ids,
+  )
+  return new Map(rows.map((p) => [Number(p.id), [p.brand, p.name].filter(Boolean).join(' ')]))
 }
 
 export function listCategories() {

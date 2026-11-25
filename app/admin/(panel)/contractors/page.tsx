@@ -85,7 +85,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
         {rows.length === 0 ? (
           <EmptyState title="No contractors found" description={q ? 'Try a different search.' : 'Add a contractor to get started.'} />
         ) : (
-          <DataTable head={['Contractor', 'Mobile', <span key="assign" className="sr-only">Assign points</span>, <span key="actions" className="sr-only">Actions</span>]}>
+          <DataTable head={['Contractor', 'Points', <span key="actions" className="sr-only">Actions</span>]}>
             {rows.map((c) => (
               <tr key={c.id} className="hover:bg-app-bg/60">
                 <Td>
@@ -104,6 +104,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
                     )}
                     <span className="min-w-0">
                       <span className="block font-medium">{c.name}</span>
+                      <span className="block text-xs text-ink-muted tabular-nums">{c.mobile}</span>
                       {c.account_status !== 'active' ? (
                         <span className="mt-0.5 block">
                           <StatusBadge status={c.account_status} />
@@ -112,8 +113,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
                     </span>
                   </Link>
                 </Td>
-                <Td className="tabular-nums">{c.mobile}</Td>
-                <Td className="text-right">
+                <Td>
                   <AssignPointsDialog contractor={{ id: c.id, name: c.name, mobile: c.mobile }} products={products} />
                 </Td>
                 <Td className="w-10 text-right">
