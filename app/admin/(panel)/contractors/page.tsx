@@ -8,7 +8,7 @@ import { ContractorFields } from '@/components/admin/contractors/contractor-fiel
 import { ContractorRowActions } from '@/components/admin/contractors/contractor-row-actions'
 import { AssignPointsDialog } from '@/components/admin/contractors/assign-points-dialog'
 import { listProductOptions } from '@/lib/server/catalogue-admin'
-import { DataTable, EmptyState, fmtNumber, PageHeader, Panel, StatusBadge, Td } from '@/components/admin/ui'
+import { EmptyState, fmtNumber, PageHeader, Panel, StatusBadge } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
 import { createContractorAction } from '../panel-actions'
 
@@ -19,6 +19,20 @@ const TABS = [
   { value: 'suspended', label: 'Suspended' },
   { value: 'inactive', label: 'Inactive' },
 ]
+
+/** Rank by points earned to date: gold / silver / bronze for the top three. */
+function RankBadge({ rank, earned }: { rank: number; earned: number }) {
+  const medal = rank === 1 ? 'bg-amber-400 text-amber-950' : rank === 2 ? 'bg-slate-300 text-slate-900' : rank === 3 ? 'bg-orange-300 text-orange-950' : 'bg-app-bg text-ink-muted'
+  return (
+    <span
+      className={cn('flex h-7 min-w-7 shrink-0 items-center justify-center rounded-full px-1.5 text-xs font-bold tabular-nums', earned > 0 ? medal : 'bg-app-bg text-ink-muted')}
+      title={earned > 0 ? `Rank ${rank} by points earned` : 'No points earned yet'}
+      aria-label={earned > 0 ? `Rank ${rank}` : 'Not ranked yet'}
+    >
+      {earned > 0 ? `#${rank}` : '–'}
+    </span>
+  )
+}
 
 export default async function ContractorsPage({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams
@@ -38,7 +52,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
     <>
       <PageHeader
         title="Contractor Management"
-        description="Register contractors, approve accounts, and manage their access."
+        description="Ranked by points earned to date. Register contractors, approve accounts, and assign points."
         actions={
           <FormDialog triggerLabel="Add contractor" title="Add contractor" description="The mobile number becomes the username and the first password.">
             <ActionForm action={createContractorAction} submitLabel="Create contractor">
@@ -85,43 +99,44 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
         {rows.length === 0 ? (
           <EmptyState title="No contractors found" description={q ? 'Try a different search.' : 'Add a contractor to get started.'} />
         ) : (
-          <DataTable head={['Contractor', 'Points', <span key="actions" className="sr-only">Actions</span>]}>
+          <ul className="divide-y divide-border rounded-[10px] border border-border">
             {rows.map((c) => (
-              <tr key={c.id} className="hover:bg-app-bg/60">
-                <Td>
-                  <Link href={`/admin/contractors/${c.id}`} className="flex items-center gap-3 hover:text-brand">
-                    {c.photo_url ? (
-                      <img src={c.photo_url} alt="" className="size-10 shrink-0 rounded-full border border-border object-cover" />
-                    ) : (
-                      <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-sm font-semibold text-brand" aria-hidden="true">
-                        {c.name
-                          .split(/\s+/)
-                          .map((w) => w[0])
-                          .slice(0, 2)
-                          .join('')
-                          .toUpperCase()}
-                      </span>
-                    )}
-                    <span className="min-w-0">
-                      <span className="block font-medium">{c.name}</span>
-                      <span className="block text-xs text-ink-muted tabular-nums">{c.mobile}</span>
-                      {c.account_status !== 'active' ? (
-                        <span className="mt-0.5 block">
-                          <StatusBadge status={c.account_status} />
-                        </span>
-                      ) : null}
+              <li key={c.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-app-bg/60 sm:gap-3 sm:px-4">
+                <RankBadge rank={Number(c.rank)} earned={Number(c.earned)} />
+                <Link href={`/admin/contractors/${c.id}`} className="flex min-w-0 items-center gap-2.5 hover:text-brand">
+                  {c.photo_url ? (
+                    <img src={c.photo_url} alt="" className="size-10 shrink-0 rounded-full border border-border object-cover" />
+                  ) : (
+                    <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-lavender text-sm font-semibold text-brand" aria-hidden="true">
+                      {c.name
+                        .split(/\s+/)
+                        .map((w) => w[0])
+                        .slice(0, 2)
+                        .join('')
+                        .toUpperCase()}
                     </span>
-                  </Link>
-                </Td>
-                <Td>
+                  )}
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{c.name}</span>
+                    <span className="block text-xs text-ink-muted tabular-nums">
+                      {c.mobile} &middot; {fmtNumber(c.earned)} pts earned
+                    </span>
+                    {c.account_status !== 'active' ? (
+                      <span className="mt-0.5 block">
+                        <StatusBadge status={c.account_status} />
+                      </span>
+                    ) : null}
+                  </span>
+                </Link>
+                <div className="shrink-0">
                   <AssignPointsDialog contractor={{ id: c.id, name: c.name, mobile: c.mobile }} products={products} />
-                </Td>
-                <Td className="w-10 text-right">
+                </div>
+                <div className="ml-auto shrink-0">
                   <ContractorRowActions id={c.id} name={c.name} code={c.contractor_code} />
-                </Td>
-              </tr>
+                </div>
+              </li>
             ))}
-          </DataTable>
+          </ul>
         )}
 
         {pages > 1 ? (
