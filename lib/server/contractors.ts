@@ -461,6 +461,30 @@ export interface ContractorListRow {
   available: number
   pending: number
   last_login_at: string | null
+  /** Points earned to date, net of reversals and returns. */
+  earned: number
+  /** 1 = most points earned among all (non-archived) contractors; ties share a rank. */
+  rank: number
+}
+
+/** Points a contractor has earned to date (ignores what they spent), net of reversed / returned points. */
+const EARNED_SQL = (alias: string) => `GREATEST(COALESCE(${alias}.total_earned, 0) - COALESCE(${alias}.reversed, 0), 0)`
+
+/** Rank of contractor row `c`/`b`: 1 + number of non-archived contractors who earned more. */
+const RANK_SQL = `(1 + (SELECT COUNT(*) FROM contractors c2
+   LEFT JOIN reward_balances b2 ON b2.contractor_id = c2.id AND b2.currency = 'points' AND b2.token_category_id = 0
+   WHERE c2.account_status <> 'archived' AND ${EARNED_SQL('b2')} > ${EARNED_SQL('b')}))`
+
+/** A single contractor's own rank, for their app. Never exposes other contractors. */
+export async function getContractorRank(contractorId: number) {
+  const row = await queryOne<{ earned: number; rank: number }>(
+    `SELECT ${EARNED_SQL('b')} AS earned, ${RANK_SQL} AS \`rank\`
+     FROM contractors c
+     LEFT JOIN reward_balances b ON b.contractor_id = c.id AND b.currency = 'points' AND b.token_category_id = 0
+     WHERE c.id = ?`,
+    [contractorId],
+  )
+  return { earned: Number(row?.earned ?? 0), rank: Number(row?.rank ?? 0) }
 }
 
 export interface ContractorListFilters {
@@ -495,12 +519,13 @@ export async function listContractors(filters: ContractorListFilters) {
   const [rows, total] = await Promise.all([
     query<ContractorListRow>(
       `SELECT c.id, c.contractor_code, c.name, c.mobile, c.photo_url, c.area, c.city, c.account_status, c.verification_status,
-              c.joining_date, COALESCE(b.available, 0) AS available, COALESCE(b.pending, 0) AS pending, cc.last_login_at
+              c.joining_date, COALESCE(b.available, 0) AS available, COALESCE(b.pending, 0) AS pending, cc.last_login_at,
+              ${EARNED_SQL('b')} AS earned, ${RANK_SQL} AS \`rank\`
        FROM contractors c
        LEFT JOIN contractor_credentials cc ON cc.contractor_id = c.id
        LEFT JOIN reward_balances b ON b.contractor_id = c.id AND b.currency = 'points' AND b.token_category_id = 0
        WHERE ${whereSql}
-       ORDER BY c.created_at DESC, c.id DESC
+       ORDER BY earned DESC, c.name ASC, c.id ASC
        LIMIT ? OFFSET ?`,
       [...params, CONTRACTOR_PAGE_SIZE, (page - 1) * CONTRACTOR_PAGE_SIZE],
     ),

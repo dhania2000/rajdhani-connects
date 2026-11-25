@@ -1,5 +1,6 @@
 import { execute, isDbConfigured, padCode, query, queryOne, withTransaction, isDuplicateKeyError } from './db'
 import { DEFAULT_APP_CONTENT, getAppContent, type AppContent } from './admin-rewards'
+import { getContractorRank } from './contractors'
 import { writeAudit } from './audit'
 import { getPointsBalance, InsufficientBalanceError, postLedgerEntry } from './ledger'
 import type {
@@ -30,6 +31,8 @@ export interface ContractorAppState {
   unreadCount: number
   storePhone: string
   content: ContractorAppContent
+  /** This contractor's own rank by points earned to date (0 points = not ranked yet). Other contractors are never included. */
+  ranking: { rank: number; earned: number }
 }
 
 /** Admin-managed text and tile settings for the contractor app (Rewards Engine > App content). */
@@ -93,7 +96,7 @@ export async function getContractorClaims(contractorId: number): Promise<RewardC
 }
 
 export async function getContractorState(contractorId: number): Promise<ContractorAppState> {
-  const [c, balance, claims, prefs, unread, content] = await Promise.all([
+  const [c, balance, claims, prefs, unread, content, ranking] = await Promise.all([
     queryOne<{
       contractor_code: string
       name: string
@@ -121,6 +124,7 @@ export async function getContractorState(contractorId: number): Promise<Contract
       [contractorId],
     ),
     getAppContent(),
+    getContractorRank(contractorId),
   ])
   if (!c) throw new Error('Contractor not found')
   return {
@@ -146,6 +150,7 @@ export async function getContractorState(contractorId: number): Promise<Contract
     unreadCount: unread?.n ?? 0,
     storePhone: content.storePhone,
     content: toAppContent(content),
+    ranking,
   }
 }
 
