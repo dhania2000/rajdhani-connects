@@ -82,7 +82,7 @@ async function runMigrations() {
   if (productPoints.length === 0) {
     await getPool().query('ALTER TABLE products ADD COLUMN reward_points BIGINT UNSIGNED NULL AFTER scheme_label')
   }
-  // Tile Visualizer: flat texture image and real tile size for catalogue products.
+  // Visualizer: flat texture image and real tile size for catalogue products.
   for (const [column, ddl] of [
     ['texture_url', 'ALTER TABLE products ADD COLUMN texture_url VARCHAR(500) NULL AFTER image_url'],
     ['tile_width_mm', 'ALTER TABLE products ADD COLUMN tile_width_mm INT UNSIGNED NULL AFTER texture_url'],

@@ -44,7 +44,7 @@ export const productSchema = z.object({
   ),
   description: optionalText(2000),
   imageUrl: optionalText(500),
-  /** Flat photo of the tile face, used by the contractor Tile Visualizer. */
+  /** Flat photo of the tile face, used by the contractor Visualizer. */
   textureUrl: optionalText(500),
   tileWidthMm: z.preprocess((v) => (v === '' || v == null ? null : v), z.coerce.number().int().min(10).max(5000).nullable()),
   tileHeightMm: z.preprocess((v) => (v === '' || v == null ? null : v), z.coerce.number().int().min(10).max(5000).nullable()),
@@ -96,6 +96,8 @@ export interface ProductOption {
   brand: string
   unit: string
   category: string
+  /** Category short code, e.g. "adhesive". */
+  categorySlug: string
   description: string
   /** Reward points per unit, if the admin set them. */
   points: number | null
@@ -109,11 +111,12 @@ export async function listProductOptions(): Promise<ProductOption[]> {
     brand: string | null
     unit: string | null
     category: string
+    category_slug: string
     description: string | null
     reward_points: number | null
     image_url: string | null
   }>(
-    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, p.description, p.reward_points, COALESCE(p.image_url, c.image_url) AS image_url
+    `SELECT p.id, p.name, p.brand, p.unit, c.name AS category, c.slug AS category_slug, p.description, p.reward_points, COALESCE(p.image_url, c.image_url) AS image_url
      FROM products p JOIN product_categories c ON c.id = p.category_id
      WHERE p.status = 'active' ORDER BY c.display_order, c.name, p.display_order, p.name LIMIT 2000`,
   )
@@ -123,6 +126,7 @@ export async function listProductOptions(): Promise<ProductOption[]> {
     brand: r.brand ?? '',
     unit: r.unit ?? '',
     category: r.category,
+    categorySlug: r.category_slug,
     description: r.description ?? '',
     points: r.reward_points === null ? null : Number(r.reward_points),
     image: r.image_url,

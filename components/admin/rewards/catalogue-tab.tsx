@@ -57,9 +57,9 @@ function ProductFields({ p, categories }: { p?: ProductRow; categories: Category
         <TextArea label="Description" name="description" defaultValue={p?.description ?? ''} className="sm:col-span-2" placeholder="Size, finish, features…" />
         <ImageUploadField label="Product image" name="imageUrl" fileName="imageFile" defaultValue={p?.image_url} className="sm:col-span-2" />
         <div className="flex flex-col gap-3 rounded-lg border border-dashed border-border p-3 sm:col-span-2">
-          <p className="text-sm font-medium text-ink">Tile Visualizer (optional)</p>
+          <p className="text-sm font-medium text-ink">Visualizer (optional)</p>
           <p className="-mt-2 text-xs text-ink-muted">
-            Upload a flat, straight-on photo of one tile&apos;s surface (not the box). Products with a texture appear in the contractor&apos;s Tile Visualizer.
+            Upload a flat, straight-on photo of one tile&apos;s surface (not the box). Products with a texture appear in the contractor&apos;s Visualizer.
           </p>
           <ImageUploadField label="Tile surface texture" name="textureUrl" fileName="textureFile" defaultValue={p?.texture_url} />
           <div className="grid grid-cols-2 gap-3">
@@ -152,7 +152,7 @@ export async function CatalogueTab() {
                     <div className="min-w-0">
                       <p className="font-medium">{p.name}</p>
                       {p.description ? <p className="line-clamp-2 max-w-xs text-xs text-ink-muted">{p.description}</p> : null}
-                      {p.texture_url ? <p className="mt-0.5 text-[11px] font-medium text-emerald-700">In Tile Visualizer</p> : null}
+                      {p.texture_url ? <p className="mt-0.5 text-[11px] font-medium text-emerald-700">In Visualizer</p> : null}
                     </div>
                   </div>
                 </Td>
