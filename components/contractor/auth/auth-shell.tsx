@@ -1,5 +1,5 @@
 import { Phone } from 'lucide-react'
-import { BrandLogo } from '@/components/contractor/layout/brand-logo'
+import { BrandLogoFull } from '@/components/contractor/layout/brand-logo'
 import { getPublicBranding } from '@/lib/server/contractor-app'
 
 interface AuthShellProps {
@@ -14,7 +14,7 @@ export async function AuthShell({ title, description, subtitle = 'Contractor Rew
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col bg-app-bg">
       <header className="flex flex-col items-center gap-3 bg-gradient-to-b from-navy to-navy-2 px-6 pt-[calc(env(safe-area-inset-top)+2.5rem)] pb-14 text-center text-white">
-        <BrandLogo className="size-14" />
+        <BrandLogoFull className="w-32" />
         <p className="text-lg font-semibold tracking-tight">{brandName}</p>
         <p className="text-xs text-white/70">{subtitle}</p>
       </header>
