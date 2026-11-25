@@ -317,7 +317,7 @@ export function TileVisualizer({ products }: { products: Product[] }) {
     return (
       <main className="flex flex-col gap-3 p-4">
         <div className="rounded-xl bg-white p-5 text-center shadow-[0_1px_3px_rgba(28,35,64,0.08)]">
-          <p className="text-sm font-semibold text-ink">Tile Visualizer is coming soon</p>
+          <p className="text-sm font-semibold text-ink">Visualizer is coming soon</p>
           <p className="mt-1 text-[13px] text-ink-muted">The store hasn&apos;t added tile textures yet.</p>
         </div>
       </main>

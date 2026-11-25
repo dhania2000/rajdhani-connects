@@ -38,7 +38,9 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
   const page = Math.max(1, Number(sp.page) || 1)
   const status = sp.status ?? ''
   const q = sp.q?.trim() ?? ''
-  const [{ rows, total }, products] = await Promise.all([listContractors({ q, status: status || undefined, page }), listProductOptions()])
+  const [{ rows, total }, allProducts] = await Promise.all([listContractors({ q, status: status || undefined, page }), listProductOptions()])
+  // Assign Points offers only the Tile Adhesive / Glue category (code "adhesive").
+  const products = allProducts.filter((p) => p.categorySlug === 'adhesive')
   const pages = Math.max(1, Math.ceil(total / CONTRACTOR_PAGE_SIZE))
   const href = (p: Record<string, string | number>) => {
     const params = new URLSearchParams({ ...(q && { q }), ...(status && { status }), ...Object.fromEntries(Object.entries(p).map(([k, v]) => [k, String(v)])) })

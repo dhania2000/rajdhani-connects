@@ -566,7 +566,7 @@ export const DEFAULT_APP_CONTENT: AppContent = {
     { key: 'catalogue', title: 'Product Catalogue', subtitle: '', visible: true },
     { key: 'offers', title: 'Offers & Schemes', subtitle: '', visible: true },
     { key: 'ledger', title: 'My Ledger', subtitle: '(Udhar/Advance)', visible: false },
-    { key: 'visualizer', title: 'Tile Visualizer', subtitle: '(Try on photo)', visible: true },
+    { key: 'visualizer', title: 'Visualizer', subtitle: '(Try on photo)', visible: true },
   ],
 }
 
@@ -585,7 +585,10 @@ export async function getAppContent(): Promise<AppContent> {
     const merged: AppContent = { ...defaults, ...valid, storePhone: valid.storePhone || defaults.storePhone }
     merged.quickActions = DEFAULT_APP_CONTENT.quickActions.map((d) => {
       const saved = savedActions.find((q) => q?.key === d.key)
-      return saved && typeof saved.title === 'string' ? { ...d, ...saved } : d
+      if (!saved || typeof saved.title !== 'string') return d
+      // "Tile Visualizer" was the original default name; saved copies of it follow the rename.
+      if (d.key === 'visualizer' && saved.title === 'Tile Visualizer') return { ...d, ...saved, title: d.title }
+      return { ...d, ...saved }
     })
     return merged
   } catch {
