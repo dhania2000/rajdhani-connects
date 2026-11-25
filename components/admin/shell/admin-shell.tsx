@@ -15,8 +15,8 @@ const COLLAPSE_KEY = 'rts-admin-sidebar-collapsed'
 
 const isUnder = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
-function BrandMark() {
-  return <BrandLogo className="size-10" />
+function BrandMark({ logoUrl }: { logoUrl?: string }) {
+  return <BrandLogo className="size-10" src={logoUrl} />
 }
 
 function NavItem({ href, label, icon: Icon, active, collapsed, onNavigate }: { href: string; label: string; icon: typeof Users; active: boolean; collapsed?: boolean; onNavigate?: () => void }) {
@@ -106,12 +106,12 @@ function RewardsGroup({ collapsed, onExpandSidebar, onNavigate }: { collapsed?: 
   )
 }
 
-function SidebarBody({ brand, collapsed, onExpand, onNavigate }: { brand: string; collapsed?: boolean; onExpand?: () => void; onNavigate?: () => void }) {
+function SidebarBody({ brand, logoUrl, collapsed, onExpand, onNavigate }: { brand: string; logoUrl?: string; collapsed?: boolean; onExpand?: () => void; onNavigate?: () => void }) {
   const pathname = usePathname()
   return (
     <div className="flex h-full flex-col bg-navy text-white">
       <div className={cn('flex h-[74px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5', collapsed && 'justify-center px-0')}>
-        <BrandMark />
+        <BrandMark logoUrl={logoUrl} />
         <div className={cn('min-w-0', collapsed && 'sr-only')}>
           <p className="truncate text-[13.5px] font-semibold leading-tight tracking-tight">{brand}</p>
           <p className="mt-0.5 text-[11px] font-medium uppercase tracking-[0.14em] text-white/45">Admin Panel</p>
@@ -150,6 +150,7 @@ function useBreadcrumbs() {
 
 export function AdminShell({
   brand,
+  logoUrl,
   adminName,
   adminRole,
   alertCount = 0,
@@ -157,6 +158,8 @@ export function AdminShell({
   children,
 }: {
   brand: string
+  /** Logo uploaded in App Content Control ('' = built-in). */
+  logoUrl?: string
   adminName: string
   adminRole: string
   alertCount?: number
@@ -192,13 +195,13 @@ export function AdminShell({
           collapsed ? 'w-[76px]' : 'w-[260px]',
         )}
       >
-        <SidebarBody brand={brand} collapsed={collapsed} onExpand={() => updateCollapsed(false)} />
+        <SidebarBody brand={brand} logoUrl={logoUrl} collapsed={collapsed} onExpand={() => updateCollapsed(false)} />
       </aside>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="left" className="w-[280px] max-w-[85vw] border-0 p-0" showCloseButton={false}>
           <SheetTitle className="sr-only">Navigation</SheetTitle>
-          <SidebarBody brand={brand} onNavigate={() => setOpen(false)} />
+          <SidebarBody brand={brand} logoUrl={logoUrl} onNavigate={() => setOpen(false)} />
         </SheetContent>
       </Sheet>
 

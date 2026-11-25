@@ -10,11 +10,11 @@ interface AuthShellProps {
 }
 
 export async function AuthShell({ title, description, subtitle = 'Contractor Rewards', children }: AuthShellProps) {
-  const { brandName, storePhone } = await getPublicBranding()
+  const { brandName, storePhone, logoUrl } = await getPublicBranding()
   return (
     <main className="mx-auto flex min-h-dvh w-full max-w-[420px] flex-col bg-app-bg">
       <header className="flex flex-col items-center gap-3 bg-gradient-to-b from-navy to-navy-2 px-6 pt-[calc(env(safe-area-inset-top)+2.5rem)] pb-14 text-center text-white">
-        <BrandLogoFull className="w-32" />
+        <BrandLogoFull className="w-32" src={logoUrl} />
         <p className="text-lg font-semibold tracking-tight">{brandName}</p>
         <p className="text-xs text-white/70">{subtitle}</p>
       </header>

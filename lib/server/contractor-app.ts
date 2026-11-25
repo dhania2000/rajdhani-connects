@@ -44,12 +44,12 @@ function toAppContent(c: AppContent): ContractorAppContent {
 }
 
 /** Branding for screens shown before sign-in. Falls back to defaults when the database is unavailable. */
-export async function getPublicBranding(): Promise<{ brandName: string; storePhone: string; supportMessage: string }> {
-  const fallback = { brandName: DEFAULT_APP_CONTENT.brandName, storePhone: '', supportMessage: DEFAULT_APP_CONTENT.supportMessage }
+export async function getPublicBranding(): Promise<{ brandName: string; storePhone: string; supportMessage: string; logoUrl: string }> {
+  const fallback = { brandName: DEFAULT_APP_CONTENT.brandName, storePhone: '', supportMessage: DEFAULT_APP_CONTENT.supportMessage, logoUrl: '' }
   if (!isDbConfigured()) return fallback
   try {
     const c = await getAppContent()
-    return { brandName: c.brandName, storePhone: c.storePhone, supportMessage: c.supportMessage }
+    return { brandName: c.brandName, storePhone: c.storePhone, supportMessage: c.supportMessage, logoUrl: c.logoUrl }
   } catch {
     return fallback
   }

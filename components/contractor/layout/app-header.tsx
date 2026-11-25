@@ -12,7 +12,7 @@ export function AppHeader() {
     <header className="sticky top-0 z-30 bg-gradient-to-b from-navy to-navy-2 pt-[env(safe-area-inset-top)]">
       <div className="flex h-14 items-center justify-between gap-3 px-4">
         <div className="flex min-w-0 items-center gap-2.5">
-          <BrandLogo className="size-9" />
+          <BrandLogo className="size-9" src={content.logoUrl} />
           <h1 className="truncate text-[17px] font-semibold tracking-tight text-white">{content.brandName}</h1>
         </div>
         <Link
