@@ -1,6 +1,6 @@
 'use client'
 
-import { useId, useMemo, useState } from 'react'
+import { useEffect, useId, useMemo, useState } from 'react'
 import { Coins, Minus, Plus } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
@@ -17,9 +17,23 @@ const unitLabel = (unit: string) => unit.replace(/^per\s+/i, '')
  * with quantities, and the points (points per unit x quantity) add up automatically. The admin can
  * still overwrite the total, and chooses Add Points or Bonus Points.
  */
-export function AssignPointsDialog({ contractor, products }: { contractor: { id: number; name: string; mobile: string }; products: ProductOption[] }) {
+export function AssignPointsDialog({
+  contractor,
+  products,
+  open: controlledOpen,
+  onOpenChange: controlledOnOpenChange,
+  showTrigger = true,
+}: {
+  contractor: { id: number; name: string; mobile: string }
+  products: ProductOption[]
+  /** Pass open/onOpenChange to open it from elsewhere (e.g. the row's ⋯ menu) with showTrigger={false}. */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
+  showTrigger?: boolean
+}) {
   const id = useId()
-  const [open, setOpen] = useState(false)
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false)
+  const open = controlledOpen ?? uncontrolledOpen
   const [qty, setQty] = useState<Record<number, number>>({})
   const [manualPoints, setManualPoints] = useState<string | null>(null)
   // A fresh key per opening so a resubmitted form never credits twice.
@@ -38,23 +52,29 @@ export function AssignPointsDialog({ contractor, products }: { contractor: { id:
   const points = manualPoints ?? (autoPoints > 0 ? String(autoPoints) : '')
   const picked = products.filter((p) => (qty[p.id] ?? 0) > 0)
 
+  // Start fresh every time it opens.
+  useEffect(() => {
+    if (!open) return
+    setQty({})
+    setManualPoints(null)
+    setKey(crypto.randomUUID())
+  }, [open])
+
   function onOpenChange(next: boolean) {
-    setOpen(next)
-    if (next) {
-      setQty({})
-      setManualPoints(null)
-      setKey(crypto.randomUUID())
-    }
+    if (controlledOnOpenChange) controlledOnOpenChange(next)
+    else setUncontrolledOpen(next)
   }
 
   const setQuantity = (pid: number, q: number) => setQty((prev) => ({ ...prev, [pid]: Math.max(0, Math.floor(q) || 0) }))
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogTrigger render={<Button size="sm" className="h-9 px-3" />}>
-        <Coins aria-hidden="true" />
-        Assign Points
-      </DialogTrigger>
+      {showTrigger ? (
+        <DialogTrigger render={<Button size="sm" className="h-9 px-3" />}>
+          <Coins aria-hidden="true" />
+          Assign Points
+        </DialogTrigger>
+      ) : null}
       <DialogContent className="flex max-h-[92vh] flex-col overflow-hidden sm:max-w-2xl">
         <DialogHeader>
           <DialogTitle>Assign points to {contractor.name}</DialogTitle>

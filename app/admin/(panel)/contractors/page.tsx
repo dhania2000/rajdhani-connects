@@ -6,7 +6,6 @@ import { FormDialog } from '@/components/admin/form-dialog'
 import { CheckboxInput } from '@/components/admin/fields'
 import { ContractorFields } from '@/components/admin/contractors/contractor-fields'
 import { ContractorRowActions } from '@/components/admin/contractors/contractor-row-actions'
-import { AssignPointsDialog } from '@/components/admin/contractors/assign-points-dialog'
 import { listProductOptions } from '@/lib/server/catalogue-admin'
 import { EmptyState, fmtNumber, PageHeader, Panel, StatusBadge } from '@/components/admin/ui'
 import { cn } from '@/lib/utils'
@@ -52,7 +51,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
     <>
       <PageHeader
         title="Contractor Management"
-        description="Ranked by points earned to date. Register contractors, approve accounts, and assign points."
+        description="Ranked by points earned to date. Use ⋯ on a contractor to assign points."
         actions={
           <FormDialog triggerLabel="Add contractor" title="Add contractor" description="The mobile number becomes the username and the first password.">
             <ActionForm action={createContractorAction} submitLabel="Create contractor">
@@ -99,11 +98,11 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
         {rows.length === 0 ? (
           <EmptyState title="No contractors found" description={q ? 'Try a different search.' : 'Add a contractor to get started.'} />
         ) : (
-          <ul className="divide-y divide-border rounded-[10px] border border-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-[10px] border border-border">
             {rows.map((c) => (
-              <li key={c.id} className="flex items-center gap-2.5 px-3 py-2.5 hover:bg-app-bg/60 sm:gap-3 sm:px-4">
+              <li key={c.id} className="flex min-w-0 items-center gap-2.5 px-3 py-2.5 hover:bg-app-bg/60 sm:gap-3 sm:px-4">
                 <RankBadge rank={Number(c.rank)} earned={Number(c.earned)} />
-                <Link href={`/admin/contractors/${c.id}`} className="flex min-w-0 items-center gap-2.5 hover:text-brand">
+                <Link href={`/admin/contractors/${c.id}`} className="flex min-w-0 flex-1 items-center gap-2.5 hover:text-brand">
                   {c.photo_url ? (
                     <img src={c.photo_url} alt="" className="size-10 shrink-0 rounded-full border border-border object-cover" />
                   ) : (
@@ -117,10 +116,10 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
                     </span>
                   )}
                   <span className="min-w-0">
-                    <span className="block truncate font-medium">{c.name}</span>
-                    <span className="block text-xs text-ink-muted tabular-nums">
-                      {c.mobile} &middot; {fmtNumber(c.earned)} pts earned
-                    </span>
+                    {/* Full name and number: wrap rather than cut off. */}
+                    <span className="block font-medium break-words">{c.name}</span>
+                    <span className="block text-xs text-ink-muted tabular-nums">{c.mobile}</span>
+                    <span className="block text-xs text-ink-muted tabular-nums">{fmtNumber(c.earned)} pts earned</span>
                     {c.account_status !== 'active' ? (
                       <span className="mt-0.5 block">
                         <StatusBadge status={c.account_status} />
@@ -129,10 +128,7 @@ export default async function ContractorsPage({ searchParams }: { searchParams: 
                   </span>
                 </Link>
                 <div className="shrink-0">
-                  <AssignPointsDialog contractor={{ id: c.id, name: c.name, mobile: c.mobile }} products={products} />
-                </div>
-                <div className="ml-auto shrink-0">
-                  <ContractorRowActions id={c.id} name={c.name} code={c.contractor_code} />
+                  <ContractorRowActions contractor={{ id: c.id, name: c.name, mobile: c.mobile }} code={c.contractor_code} products={products} />
                 </div>
               </li>
             ))}
