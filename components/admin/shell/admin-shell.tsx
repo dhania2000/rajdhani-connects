@@ -9,18 +9,14 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { REWARD_SECTIONS, REWARDS_BASE, findRewardSection, rewardHref } from '@/lib/admin-nav'
 import { cn } from '@/lib/utils'
+import { BrandLogo } from '@/components/contractor/layout/brand-logo'
 
 const COLLAPSE_KEY = 'rts-admin-sidebar-collapsed'
 
 const isUnder = (pathname: string, href: string) => pathname === href || pathname.startsWith(`${href}/`)
 
 function BrandMark() {
-  return (
-    <span className="relative flex size-9 shrink-0 items-center justify-center rounded-lg bg-white/[0.06] ring-1 ring-white/10" aria-hidden="true">
-      <span className="size-4 rotate-45 rounded-[3px] border-[1.5px] border-gold" />
-      <span className="absolute size-1.5 rotate-45 bg-gold" />
-    </span>
-  )
+  return <BrandLogo className="size-10" />
 }
 
 function NavItem({ href, label, icon: Icon, active, collapsed, onNavigate }: { href: string; label: string; icon: typeof Users; active: boolean; collapsed?: boolean; onNavigate?: () => void }) {
