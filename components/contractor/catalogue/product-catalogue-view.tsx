@@ -2,7 +2,8 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Sparkles } from 'lucide-react'
+import Link from 'next/link'
+import { Sparkles, Wand2 } from 'lucide-react'
 import type { Product, ProductCategory, ProductCategoryId } from '@/lib/types'
 import { EmptyState } from '@/components/contractor/shared/empty-state'
 import { useContractor } from '@/components/contractor/contractor-store'
@@ -26,6 +27,18 @@ export function ProductCatalogueView({ categories, products }: { categories: Pro
 
   return (
     <main className="flex flex-col gap-4 p-4">
+      {products.some((p) => p.texture) && (
+        <Link
+          href="/contractor/visualizer"
+          className="flex items-center gap-3 rounded-xl bg-gradient-to-r from-brand-strong to-[#a855f7] px-4 py-3 text-white shadow-sm"
+        >
+          <Wand2 className="size-6 shrink-0" aria-hidden="true" />
+          <span className="min-w-0">
+            <span className="block text-sm font-bold">Try tiles on your photo</span>
+            <span className="block text-[12px] text-white/85">See how a tile looks on your wall or floor before you buy.</span>
+          </span>
+        </Link>
+      )}
       <section>
         <SectionTitle>Categories</SectionTitle>
         <div role="radiogroup" aria-label="Product category" className="grid grid-cols-3 gap-2.5">

@@ -1,10 +1,10 @@
 'use client'
 
-import { FileText, Gift, Hammer, Landmark, Users } from 'lucide-react'
+import { FileText, Gift, Hammer, Landmark, Users, Wand2 } from 'lucide-react'
 import { useContractor } from '@/components/contractor/contractor-store'
 import { QuickActionCard, type QuickAction } from './quick-action-card'
 
-type TileKey = 'sales' | 'rewards' | 'claim' | 'catalogue' | 'offers' | 'ledger'
+type TileKey = 'sales' | 'rewards' | 'claim' | 'catalogue' | 'offers' | 'ledger' | 'visualizer'
 
 const TILE_STYLE: Record<TileKey, Omit<QuickAction, 'title' | 'subtitle'>> = {
   sales: { href: '/contractor/sales', icon: Users, color: '#11B981' },
@@ -13,6 +13,7 @@ const TILE_STYLE: Record<TileKey, Omit<QuickAction, 'title' | 'subtitle'>> = {
   catalogue: { href: '/contractor/catalogue', icon: FileText, color: '#1976F3' },
   offers: { href: '/contractor/offers', icon: Hammer, color: '#F59E0B' },
   ledger: { href: '/contractor/ledger', icon: Landmark, color: '#0EA5E9' },
+  visualizer: { href: '/contractor/visualizer', icon: Wand2, color: '#EC4899' },
 }
 
 /** Tile labels, subtitles and visibility are set by admins in Rewards Engine > App content. */

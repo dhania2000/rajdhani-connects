@@ -472,8 +472,8 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
     query<{ slug: string; name: string; image_url: string | null }>(
       "SELECT slug, name, image_url FROM product_categories WHERE status = 'active' ORDER BY display_order, name",
     ),
-    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null; image_url: string | null; description: string | null; reward_points: number | null }>(
-      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label, p.image_url, p.description, p.reward_points
+    query<{ id: number; slug: string; name: string; brand: string | null; unit: string | null; scheme_label: string | null; image_url: string | null; description: string | null; reward_points: number | null; texture_url: string | null; tile_width_mm: number | null; tile_height_mm: number | null }>(
+      `SELECT p.id, c.slug, p.name, p.brand, p.unit, p.scheme_label, p.image_url, p.description, p.reward_points, p.texture_url, p.tile_width_mm, p.tile_height_mm
        FROM products p JOIN product_categories c ON c.id = p.category_id
        WHERE p.status = 'active' AND c.status = 'active' ORDER BY c.display_order, p.display_order, p.name`,
     ),
@@ -490,6 +490,9 @@ export async function getProductCatalogue(): Promise<{ categories: ProductCatego
       image: p.image_url ?? undefined,
       description: p.description ?? undefined,
       points: p.reward_points ? Number(p.reward_points) : undefined,
+      texture: p.texture_url ?? undefined,
+      tileSizeMm:
+        p.tile_width_mm && p.tile_height_mm ? { width: Number(p.tile_width_mm), height: Number(p.tile_height_mm) } : undefined,
     })),
   }
 }

@@ -44,6 +44,10 @@ export const productSchema = z.object({
   ),
   description: optionalText(2000),
   imageUrl: optionalText(500),
+  /** Flat photo of the tile face, used by the contractor Tile Visualizer. */
+  textureUrl: optionalText(500),
+  tileWidthMm: z.preprocess((v) => (v === '' || v == null ? null : v), z.coerce.number().int().min(10).max(5000).nullable()),
+  tileHeightMm: z.preprocess((v) => (v === '' || v == null ? null : v), z.coerce.number().int().min(10).max(5000).nullable()),
   displayOrder: z.coerce.number().int().min(0).max(9999).default(0),
   status: activeFlag,
 })
@@ -78,6 +82,9 @@ export interface ProductRow {
   reward_points: number | null
   description: string | null
   image_url: string | null
+  texture_url: string | null
+  tile_width_mm: number | null
+  tile_height_mm: number | null
   display_order: number
   status: 'active' | 'inactive'
 }
@@ -142,7 +149,7 @@ export function listCategories() {
 
 export function listProducts() {
   return query<ProductRow>(
-    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.reward_points, p.description, p.image_url, p.display_order, p.status
+    `SELECT p.id, p.category_id, c.name AS category_name, p.name, p.brand, p.unit, p.scheme_label, p.reward_points, p.description, p.image_url, p.texture_url, p.tile_width_mm, p.tile_height_mm, p.display_order, p.status
      FROM products p JOIN product_categories c ON c.id = p.category_id
      ORDER BY c.display_order, c.name, p.display_order, p.name`,
   )
@@ -169,16 +176,30 @@ export async function saveCategory(admin: AdminSession, id: number | null, input
 export async function saveProduct(admin: AdminSession, id: number | null, input: z.infer<typeof productSchema>): Promise<Result> {
   const category = await queryOne<{ id: number }>('SELECT id FROM product_categories WHERE id = ?', [input.categoryId])
   if (!category) return { ok: false, error: 'Choose a valid category.' }
-  const values = [input.categoryId, input.name, input.brand, input.unit, input.schemeLabel, input.rewardPoints, input.description, input.imageUrl, input.displayOrder, input.status]
+  const values = [
+    input.categoryId,
+    input.name,
+    input.brand,
+    input.unit,
+    input.schemeLabel,
+    input.rewardPoints,
+    input.description,
+    input.imageUrl,
+    input.textureUrl,
+    input.tileWidthMm,
+    input.tileHeightMm,
+    input.displayOrder,
+    input.status,
+  ]
   if (id) {
     const r = await execute(
-      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, reward_points = ?, description = ?, image_url = ?, display_order = ?, status = ? WHERE id = ?',
+      'UPDATE products SET category_id = ?, name = ?, brand = ?, unit = ?, scheme_label = ?, reward_points = ?, description = ?, image_url = ?, texture_url = ?, tile_width_mm = ?, tile_height_mm = ?, display_order = ?, status = ? WHERE id = ?',
       [...values, id],
     )
     if (r.affectedRows === 0) return { ok: false, error: 'Product not found.' }
   } else {
     const r = await execute(
-      'INSERT INTO products (category_id, name, brand, unit, scheme_label, reward_points, description, image_url, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO products (category_id, name, brand, unit, scheme_label, reward_points, description, image_url, texture_url, tile_width_mm, tile_height_mm, display_order, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
       values,
     )
     id = r.insertId
