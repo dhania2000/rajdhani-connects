@@ -106,3 +106,9 @@
     display: none;
   }
 }
+
+/* Height of the iPhone status bar over a home-screen web app. env() is 0 on iOS 26.1+ (WebKit bug),
+   so components/shared/ios-status-bar-fix.ts sets --sa-top-fallback there. 0 on Android/desktop. */
+:root {
+  --sa-top: max(env(safe-area-inset-top), var(--sa-top-fallback, 0px));
+}
