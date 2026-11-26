@@ -13,6 +13,8 @@ const baseMetadata: Metadata = {
   applicationName: 'Rajdhani Contractor Rewards',
   // Home-screen behaviour on iPhone (Share > Add to Home Screen).
   appleWebApp: { capable: true, title: 'Rajdhani Connects', statusBarStyle: 'black-translucent' },
+  // Contractor app; admin pages point to /admin-manifest.webmanifest instead.
+  manifest: '/manifest.webmanifest',
 }
 
 /** Favicon and iPhone home-screen icon follow the logo uploaded in App Content Control. */

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PlusSquare, Share, X } from 'lucide-react'
 import { useContractor } from '@/components/contractor/contractor-store'
+import { cn } from '@/lib/utils'
 import { BrandLogo } from './brand-logo'
 
 /** Chrome/Edge/Samsung Internet event that lets the page trigger "Add to Home screen". */
@@ -14,7 +15,6 @@ interface BeforeInstallPromptEvent extends Event {
 /** Fire this event (e.g. from the Profile screen) to show the popup again after "Not now". */
 export const SHOW_INSTALL_EVENT = 'rc:show-install'
 
-const DISMISS_KEY = 'rc_install_dismissed_until'
 const SNOOZE_DAYS = 7
 
 function isStandalone() {
@@ -26,20 +26,46 @@ function isIos() {
   return /iphone|ipad|ipod/i.test(ua) || (ua.includes('Macintosh') && navigator.maxTouchPoints > 1)
 }
 
-function snoozed() {
+function snoozed(key: string) {
   try {
-    return Number(localStorage.getItem(DISMISS_KEY) ?? 0) > Date.now()
+    return Number(localStorage.getItem(key) ?? 0) > Date.now()
   } catch {
     return false
   }
 }
 
+/** Contractor app popup (shown above the bottom tab bar). */
+export function InstallPrompt() {
+  const { content } = useContractor()
+  return (
+    <InstallPromptCard
+      appName={content.brandName}
+      logoUrl={content.logoUrl}
+      description="Open your rewards in one tap from the home screen, like an app."
+      storageKey="rc_install_dismissed_until"
+    />
+  )
+}
+
 /**
  * "Add shortcut" popup: on Android it adds the app to the home screen in one tap; on iPhone,
  * where browsers can't do that for a site, it shows the Share > Add to Home Screen steps.
+ * Which app gets added (contractor or admin) comes from the page's manifest link.
  */
-export function InstallPrompt() {
-  const { content } = useContractor()
+export function InstallPromptCard({
+  appName,
+  logoUrl,
+  description,
+  storageKey,
+  className,
+}: {
+  appName: string
+  logoUrl?: string | null
+  description: string
+  /** localStorage key that remembers "Not now" for a week. */
+  storageKey: string
+  className?: string
+}) {
   const [deferred, setDeferred] = useState<BeforeInstallPromptEvent | null>(null)
   const [mode, setMode] = useState<'hidden' | 'prompt' | 'ios'>('hidden')
   const [busy, setBusy] = useState(false)
@@ -51,7 +77,7 @@ export function InstallPrompt() {
     const onPrompt = (e: Event) => {
       e.preventDefault()
       setDeferred(e as BeforeInstallPromptEvent)
-      if (!snoozed()) setMode('prompt')
+      if (!snoozed(storageKey)) setMode('prompt')
     }
     const onInstalled = () => {
       setDeferred(null)
@@ -61,14 +87,14 @@ export function InstallPrompt() {
     window.addEventListener('appinstalled', onInstalled)
 
     let timer: ReturnType<typeof setTimeout> | undefined
-    if (isIos() && !snoozed()) timer = setTimeout(() => setMode('ios'), 1500)
+    if (isIos() && !snoozed(storageKey)) timer = setTimeout(() => setMode('ios'), 1500)
 
     return () => {
       window.removeEventListener('beforeinstallprompt', onPrompt)
       window.removeEventListener('appinstalled', onInstalled)
       if (timer) clearTimeout(timer)
     }
-  }, [])
+  }, [storageKey])
 
   // Lets other screens reopen the popup on request, ignoring the snooze.
   useEffect(() => {
@@ -83,10 +109,10 @@ export function InstallPrompt() {
 
   const dismiss = useCallback(() => {
     try {
-      localStorage.setItem(DISMISS_KEY, String(Date.now() + SNOOZE_DAYS * 86_400_000))
+      localStorage.setItem(storageKey, String(Date.now() + SNOOZE_DAYS * 86_400_000))
     } catch {}
     setMode('hidden')
-  }, [])
+  }, [storageKey])
 
   async function addShortcut() {
     if (!deferred) return
@@ -108,7 +134,10 @@ export function InstallPrompt() {
     <div
       role="dialog"
       aria-labelledby="install-title"
-      className="fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto w-[calc(100%-1.5rem)] max-w-[396px] rounded-2xl bg-white p-4 shadow-[0_8px_30px_rgba(23,28,73,0.25)] ring-1 ring-black/5"
+      className={cn(
+        'fixed inset-x-0 bottom-[calc(4.5rem+env(safe-area-inset-bottom))] z-40 mx-auto w-[calc(100%-1.5rem)] max-w-[396px] rounded-2xl bg-white p-4 shadow-[0_8px_30px_rgba(23,28,73,0.25)] ring-1 ring-black/5',
+        className,
+      )}
     >
       <button
         type="button"
@@ -119,12 +148,12 @@ export function InstallPrompt() {
         <X className="size-4" aria-hidden="true" />
       </button>
       <div className="flex items-center gap-3 pr-6">
-        <BrandLogo className="size-12 ring-1 ring-border" src={content.logoUrl} />
+        <BrandLogo className="size-12 ring-1 ring-border" src={logoUrl} />
         <div className="min-w-0">
           <p id="install-title" className="text-[15px] font-bold text-ink">
-            Add {content.brandName} to your phone
+            Add {appName} to your phone
           </p>
-          <p className="text-[12px] leading-snug text-ink-muted">Open your rewards in one tap from the home screen, like an app.</p>
+          <p className="text-[12px] leading-snug text-ink-muted">{description}</p>
         </div>
       </div>
 

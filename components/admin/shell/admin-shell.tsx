@@ -3,13 +3,14 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Bell, ChevronDown, ChevronRight, Gift, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Users } from 'lucide-react'
+import { Bell, ChevronDown, ChevronRight, Gift, LayoutDashboard, LogOut, Menu, PanelLeftClose, PanelLeftOpen, Search, Smartphone, Users } from 'lucide-react'
 import { Toaster } from '@/components/ui/sonner'
 import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { REWARD_SECTIONS, REWARDS_BASE, findRewardSection, rewardHref } from '@/lib/admin-nav'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/contractor/layout/brand-logo'
+import { InstallPromptCard, SHOW_INSTALL_EVENT } from '@/components/contractor/layout/install-prompt'
 
 const COLLAPSE_KEY = 'rts-admin-sidebar-collapsed'
 
@@ -314,6 +315,10 @@ export function AdminShell({
                 <Gift className="size-4" aria-hidden="true" />
                 Rewards configuration
               </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => window.dispatchEvent(new Event(SHOW_INSTALL_EVENT))}>
+                <Smartphone className="size-4" aria-hidden="true" />
+                Add app to home screen
+              </DropdownMenuItem>
               <DropdownMenuSeparator />
               <form action={logoutAction}>
                 <DropdownMenuItem render={<button type="submit" className="w-full" />} variant="destructive">
@@ -328,6 +333,14 @@ export function AdminShell({
         <main className="mx-auto flex w-full max-w-[1440px] min-w-0 flex-1 flex-col gap-6 p-3 sm:p-4 lg:p-6">{children}</main>
       </div>
       <Toaster position="top-right" theme="light" richColors closeButton />
+      {/* Admin has no bottom tab bar, so the popup sits at the bottom (bottom-right on desktop). */}
+      <InstallPromptCard
+        appName={`${brand} Admin`}
+        logoUrl={logoUrl}
+        description="Open the admin panel in one tap from the home screen, like an app."
+        storageKey="rc_admin_install_dismissed_until"
+        className="bottom-[calc(1rem+env(safe-area-inset-bottom))] sm:right-6 sm:left-auto sm:mx-0"
+      />
     </div>
   )
 }
