@@ -111,7 +111,8 @@ function SidebarBody({ brand, logoUrl, collapsed, onExpand, onNavigate }: { bran
   const pathname = usePathname()
   return (
     <div className="flex h-full flex-col bg-navy text-white">
-      <div className={cn('flex h-[74px] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5', collapsed && 'justify-center px-0')}>
+      {/* pt-safe: on the iPhone home-screen app the page runs under the status bar. */}
+      <div className={cn('flex h-[calc(74px+env(safe-area-inset-top))] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 pt-[env(safe-area-inset-top)]', collapsed && 'justify-center px-0')}>
         <BrandMark logoUrl={logoUrl} />
         <div className={cn('min-w-0', collapsed && 'sr-only')}>
           <p className="truncate text-[13.5px] font-semibold leading-tight tracking-tight">{brand}</p>
@@ -207,7 +208,11 @@ export function AdminShell({
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="sticky top-0 z-30 flex h-[74px] items-center gap-3 border-b border-border bg-white/90 px-3 backdrop-blur-md sm:px-4 lg:px-6">
+        {/* On the iPhone home-screen app the page runs under the status bar (black-translucent), so the header
+            leaves that space free and paints it navy so the white clock/battery stay readable. 0 everywhere else. */}
+        <header className="sticky top-0 z-30 flex h-[calc(74px+env(safe-area-inset-top))] items-center gap-3 border-b border-border bg-white/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-4 lg:px-6"
+          style={{ boxShadow: 'inset 0 env(safe-area-inset-top) 0 0 #141b3d' }}
+        >
           <button
             type="button"
             onClick={() => setOpen(true)}
