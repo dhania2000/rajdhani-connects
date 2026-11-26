@@ -9,6 +9,7 @@ import { Sheet, SheetContent, SheetTitle } from '@/components/ui/sheet'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuGroup, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { REWARD_SECTIONS, REWARDS_BASE, findRewardSection, rewardHref } from '@/lib/admin-nav'
 import { cn } from '@/lib/utils'
+import { useIosStatusBarFix } from '@/components/shared/ios-status-bar-fix'
 import { BrandLogo } from '@/components/contractor/layout/brand-logo'
 import { InstallPromptCard, SHOW_INSTALL_EVENT } from '@/components/contractor/layout/install-prompt'
 
@@ -112,7 +113,7 @@ function SidebarBody({ brand, logoUrl, collapsed, onExpand, onNavigate }: { bran
   return (
     <div className="flex h-full flex-col bg-navy text-white">
       {/* pt-safe: on the iPhone home-screen app the page runs under the status bar. */}
-      <div className={cn('flex h-[calc(74px+env(safe-area-inset-top))] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 pt-[env(safe-area-inset-top)]', collapsed && 'justify-center px-0')}>
+      <div className={cn('flex h-[calc(74px+var(--sa-top))] shrink-0 items-center gap-3 border-b border-white/[0.07] px-5 pt-[var(--sa-top)]', collapsed && 'justify-center px-0')}>
         <BrandMark logoUrl={logoUrl} />
         <div className={cn('min-w-0', collapsed && 'sr-only')}>
           <p className="truncate text-[13.5px] font-semibold leading-tight tracking-tight">{brand}</p>
@@ -168,6 +169,7 @@ export function AdminShell({
   logoutAction: () => Promise<void>
   children: ReactNode
 }) {
+  useIosStatusBarFix()
   const [open, setOpen] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
 
@@ -208,9 +210,10 @@ export function AdminShell({
       </Sheet>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        {/* On the iPhone home-screen app the page runs under the status bar (black-translucent), so the header
-            leaves that space free and paints it navy so the white clock/battery stay readable. 0 everywhere else. */}
-        <header className="sticky top-0 z-30 flex h-[calc(74px+env(safe-area-inset-top))] items-center gap-3 border-b border-border bg-white/90 px-3 pt-[env(safe-area-inset-top)] backdrop-blur-md sm:px-4 lg:px-6"
+        {/* On the iPhone home-screen app the page runs under the status bar, so the header leaves that space free
+            (--sa-top, see globals.css). Where iOS reports the height (env), the strip is navy for the white clock;
+            on iOS 26.1+ the fallback height is used and iOS draws a dark clock, so the strip stays white. */}
+        <header className="sticky top-0 z-30 flex h-[calc(74px+var(--sa-top))] items-center gap-3 border-b border-border bg-white/90 px-3 pt-[var(--sa-top)] backdrop-blur-md sm:px-4 lg:px-6"
           style={{ boxShadow: 'inset 0 env(safe-area-inset-top) 0 0 #141b3d' }}
         >
           <button
