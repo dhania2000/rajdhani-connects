@@ -7,6 +7,8 @@ import { AdminLoginForm } from '@/components/admin/admin-login-form'
 export const metadata: Metadata = {
   title: 'Admin Login – Rajdhani Connects',
   robots: { index: false, follow: false },
+  manifest: '/admin-manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Rajdhani Admin', statusBarStyle: 'black-translucent' },
 }
 export const dynamic = 'force-dynamic'
 

@@ -8,6 +8,9 @@ import { adminLogoutAction } from '../actions'
 export const metadata: Metadata = {
   title: 'Admin – Rajdhani Connects',
   robots: { index: false, follow: false },
+  // "Add shortcut" installs the admin panel as its own app.
+  manifest: '/admin-manifest.webmanifest',
+  appleWebApp: { capable: true, title: 'Rajdhani Admin', statusBarStyle: 'black-translucent' },
 }
 export const dynamic = 'force-dynamic'
 
